@@ -1,0 +1,18 @@
+{
+  "template_vm": "chameleon-template",
+  "client_numa_node": 1,
+  "server": {
+    "address": "192.0.2.1",
+    "manage_local": false,
+    "manage_remote": true,
+    "ssh_host": "memory-server",
+    "binary": "/opt/chameleon-hermit/server/rswap-server",
+    "command_prefix": []
+  },
+  "slots": [
+    {"name": "chameleon-vm1", "ssh_port": 5221, "vfio": [], "rdma_interface": "ibp1s0", "rdma_address": "192.0.2.11/24", "server_port": 9401},
+    {"name": "chameleon-vm2", "ssh_port": 5222, "vfio": [], "rdma_interface": "ibp1s0", "rdma_address": "192.0.2.12/24", "server_port": 9402},
+    {"name": "chameleon-vm3", "ssh_port": 5223, "vfio": [], "rdma_interface": "ibp1s0", "rdma_address": "192.0.2.13/24", "server_port": 9403}
+  ],
+  "single_slot": {"name": "chameleon-single", "ssh_port": 5224, "vfio": [], "rdma_interface": "ibp1s0", "rdma_address": "192.0.2.21/24", "server_port": 9404}
+}

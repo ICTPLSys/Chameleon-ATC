@@ -1,0 +1,1460 @@
+From 930596aa89e42a24d7b1942a9f13e6f97f4d97b8 Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Sun, 20 Sep 2026 00:48:56 +0800
+Subject: [PATCH 1/2] Port HyperAlloc shared LLFree allocator and checked
+ virtio install to Linux 6.18
+
+---
+ Makefile                                   |   2 +-
+ drivers/virtio/Kconfig                     |   7 +
+ drivers/virtio/Makefile                    |   2 +
+ drivers/virtio/virtio_llfree_balloon.c     | 443 +++++++++++++++++++++
+ include/linux/mmzone.h                     |   3 +
+ include/linux/vmscan.h                     |   5 +
+ include/uapi/linux/virtio_llfree_balloon.h |  43 ++
+ mm/Kconfig                                 |   2 +
+ mm/Makefile                                |   2 +
+ mm/llfree/Kconfig                          |  11 +
+ mm/llfree/Makefile                         |   3 +
+ mm/llfree/include/llfree_alloc.h           |  17 +
+ mm/llfree/include/llfree_types.h           |   3 +
+ mm/llfree/llc                              |   1 +
+ mm/llfree/llfree.c                         | 157 ++++++++
+ mm/llfree/private/llfree_platform.h        | 240 +++++++++++
+ mm/mm_init.c                               |  14 +
+ mm/page_alloc.c                            | 101 +++++
+ mm/vmscan.c                                |  33 ++
+ mm/vmstat.c                                |  26 ++
+ 20 files changed, 1114 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/virtio/virtio_llfree_balloon.c
+ create mode 100644 include/linux/vmscan.h
+ create mode 100644 include/uapi/linux/virtio_llfree_balloon.h
+ create mode 100644 mm/llfree/Kconfig
+ create mode 100644 mm/llfree/Makefile
+ create mode 100644 mm/llfree/include/llfree_alloc.h
+ create mode 100644 mm/llfree/include/llfree_types.h
+ create mode 120000 mm/llfree/llc
+ create mode 100644 mm/llfree/llfree.c
+ create mode 100644 mm/llfree/private/llfree_platform.h
+
+diff --git a/Makefile b/Makefile
+index a082a1d..c76fc3c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -574,7 +574,7 @@ USERINCLUDE    := \
+ 
+ # Use LINUXINCLUDE when you must reference the include/ directory.
+ # Needed to be compatible with the O= option
+-LINUXINCLUDE    := \
++LINUXINCLUDE    := -I$(srctree)/mm/llfree/include -I$(srctree)/mm/llfree/llc/include  \
+ 		-I$(srctree)/arch/$(SRCARCH)/include \
+ 		-I$(objtree)/arch/$(SRCARCH)/include/generated \
+ 		-I$(srctree)/include \
+diff --git a/drivers/virtio/Kconfig b/drivers/virtio/Kconfig
+index 6db5235..953fdb7 100644
+--- a/drivers/virtio/Kconfig
++++ b/drivers/virtio/Kconfig
+@@ -253,3 +253,10 @@ config VIRTIO_RTC_CLASS
+ endif # VIRTIO_RTC
+ 
+ endif # VIRTIO_MENU
++
++config VIRTIO_LLFREE_BALLOON
++	bool "HyperAlloc LLFree virtio balloon"
++	depends on VIRTIO && LLFREE && !VIRTIO_BALLOON
++	help
++	  HyperAlloc install and reclaim protocol. Requires the matching
++	  order/status-capable QEMU device, single NUMA node and fixed CPUs.
+diff --git a/drivers/virtio/Makefile b/drivers/virtio/Makefile
+index eefcfe9..3fdca8c 100644
+--- a/drivers/virtio/Makefile
++++ b/drivers/virtio/Makefile
+@@ -19,3 +19,5 @@ virtio_rtc-y := virtio_rtc_driver.o
+ virtio_rtc-$(CONFIG_VIRTIO_RTC_PTP) += virtio_rtc_ptp.o
+ virtio_rtc-$(CONFIG_VIRTIO_RTC_ARM) += virtio_rtc_arm.o
+ virtio_rtc-$(CONFIG_VIRTIO_RTC_CLASS) += virtio_rtc_class.o
++
++obj-$(CONFIG_VIRTIO_LLFREE_BALLOON) += virtio_llfree_balloon.o
+diff --git a/drivers/virtio/virtio_llfree_balloon.c b/drivers/virtio/virtio_llfree_balloon.c
+new file mode 100644
+index 0000000..b3b9f3f
+--- /dev/null
++++ b/drivers/virtio/virtio_llfree_balloon.c
+@@ -0,0 +1,443 @@
++#include "linux/virtio_llfree_balloon.h"
++
++#include <llfree_alloc.h>
++#include <linux/virtio.h>
++#include <linux/virtio_config.h>
++#include <linux/virtio_ids.h>
++#include <linux/workqueue.h>
++#include <linux/module.h>
++#include <linux/vmscan.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++
++int ll_request_install(struct zone *zone, u64 frame, unsigned int order, size_t core);
++
++/*-----------------------------------------------------------------------------------------------
++| Shared Data
++-------------------------------------------------------------------------------------------------*/
++
++enum ll_zone_type {
++	LLFREE_ZONE_DMA32,
++	LLFREE_ZONE_NORMAL,
++	LLFREE_ZONE_MOVABLE,
++	LLFREE_ZONE_LEN,
++	LLFREE_ZONE_NONE = -1,
++};
++
++typedef enum ll_notification {
++	PAGECACHE_DROPPED,
++} ll_notification_t;
++
++typedef struct ll_install_info {
++	uint32_t node;
++	uint32_t zone;
++	uint64_t frame;
++	__le32 order;
++	__le32 status;
++} ll_install_info_t;
++
++/*-----------------------------------------------------------------------------------------------
++| Private Data
++-------------------------------------------------------------------------------------------------*/
++
++typedef struct ll_zone_info {
++	llfree_meta_t llfree_meta;
++	uint32_t start_pfn;
++	uint32_t pages;
++	uint32_t type;
++	uint32_t node;
++	_Atomic(int64_t) *free_pages;
++	_Atomic(int64_t) *file_pages;
++} ll_zone_info_t;
++
++typedef struct ll_balloon {
++	struct virtio_device *vdev;
++	struct virtqueue *info_vq;
++	struct virtqueue *notify_vq;
++	struct virtqueue **install_vqs;
++	struct work_struct shrink_pagecache_work;
++	ll_zone_info_t info_buf;
++	ll_notification_t notify_buf;
++	ll_install_info_t *install_buf;
++	u32 num_cpus;
++	enum ll_zone_type map_zone_type[__MAX_NR_ZONES];
++} ll_balloon_t;
++
++static ll_balloon_t *balloon;
++static atomic64_t install_success = ATOMIC64_INIT(0);
++static atomic64_t install_failure = ATOMIC64_INIT(0);
++static atomic64_t install_order10 = ATOMIC64_INIT(0);
++
++static int ll_protocol_show(struct seq_file *m, void *v)
++{
++	seq_puts(m, "abi install-result-v1\n");
++	seq_printf(m, "install_success %lld\n", atomic64_read(&install_success));
++	seq_printf(m, "install_failure %lld\n", atomic64_read(&install_failure));
++	seq_printf(m, "install_order10 %lld\n", atomic64_read(&install_order10));
++	return 0;
++}
++
++enum ll_balloon_vq {
++	LL_BALLOON_VQ_INFO,
++	LL_BALLOON_VQ_NOTIFY,
++	LL_BALLOON_VQ_COUNT,
++};
++
++/*-----------------------------------------------------------------------------------------------
++| Helper Functions
++-------------------------------------------------------------------------------------------------*/
++
++static void ll_init_zone_types(enum ll_zone_type *types)
++{
++	for (uint32_t i = 0; i < __MAX_NR_ZONES; i++) {
++		types[i] = LLFREE_ZONE_NONE;
++	}
++
++#ifdef CONFIG_ZONE_DMA32
++	types[ZONE_DMA32] = LLFREE_ZONE_DMA32;
++#endif
++
++	types[ZONE_NORMAL] = LLFREE_ZONE_NORMAL;
++	types[ZONE_MOVABLE] = LLFREE_ZONE_MOVABLE;
++}
++
++static inline int32_t zone_get_type(struct zone *zone)
++{
++	struct pglist_data *node = zone->zone_pgdat;
++	for (uint32_t i = 0; i < MAX_NR_ZONES; i++) {
++		if (&node->node_zones[i] == zone) {
++			return i;
++		}
++	}
++	return -1;
++}
++
++static void llfree_copy_into_buffer(ll_zone_info_t *src, ll_zone_info_t *dest)
++{
++	llfree_meta_t *src_meta = &src->llfree_meta;
++
++	BUG_ON(src == NULL || dest == NULL);
++	*dest = (ll_zone_info_t){
++		.llfree_meta = {
++			.local = (uint8_t *)virt_to_phys(src_meta->local),
++			.trees = (uint8_t *)virt_to_phys(src_meta->trees),
++			.lower = (uint8_t *)virt_to_phys(src_meta->lower),
++		},
++		.start_pfn = src->start_pfn,
++		.pages = src->pages,
++		.type = src->type,
++		.node = src->node,
++		.free_pages = (_Atomic(int64_t) *)virt_to_phys(src->free_pages),
++		.file_pages = (_Atomic(int64_t) *)virt_to_phys(src->file_pages),
++	};
++}
++
++/*-----------------------------------------------------------------------------------------------
++| Virtqueue Sending Functions
++-------------------------------------------------------------------------------------------------*/
++
++/// Send allocator data to host
++static void ll_send_info(ll_balloon_t *vb)
++{
++	ll_zone_info_t zone_info;
++	// only UMA is currently supported
++	struct pglist_data *pgdat = first_online_pgdat();
++
++	for (uint32_t i = 0; i < MAX_NR_ZONES; i++) {
++		struct scatterlist sg;
++		uint32_t len;
++		struct zone *zone = &pgdat->node_zones[i];
++		enum ll_zone_type zone_type = vb->map_zone_type[i];
++
++		if (zone_type == LLFREE_ZONE_NONE || !populated_zone(zone))
++			continue;
++
++		zone_info.type = zone_type;
++		zone_info.start_pfn = zone->zone_start_pfn;
++		zone_info.pages = zone->spanned_pages;
++		zone_info.node = pgdat->node_id;
++		zone_info.llfree_meta = llfree_metadata(zone->llfree);
++		zone_info.free_pages =
++			(_Atomic(int64_t) *)&zone->vm_stat[NR_FREE_PAGES];
++		zone_info.file_pages = (_Atomic(int64_t) *)&zone->zone_pgdat
++					       ->vm_stat[NR_FILE_PAGES];
++
++		llfree_copy_into_buffer(&zone_info, &vb->info_buf);
++
++		sg_init_one(&sg, &vb->info_buf, sizeof(vb->info_buf));
++		BUG_ON(virtqueue_add_outbuf(vb->info_vq, &sg, 1, vb, GFP_KERNEL));
++		virtqueue_kick(vb->info_vq);
++
++		// sync with virtio-device
++		while (!virtqueue_get_buf(vb->info_vq, &len) &&
++		       !virtqueue_is_broken(vb->info_vq))
++			cpu_relax();
++	}
++}
++
++/// Notify the host
++static void ll_notify(ll_balloon_t *vb, ll_notification_t request)
++{
++	struct scatterlist sg;
++	uint32_t len;
++
++	if (!virtio_has_feature(vb->vdev, LL_BALLOON_F_SHRINK_PAGECACHE)) {
++		return;
++	}
++
++	vb->notify_buf = request;
++	sg_init_one(&sg, &vb->notify_buf, sizeof(ll_notification_t));
++	BUG_ON(virtqueue_add_outbuf(vb->notify_vq, &sg, 1, vb, GFP_KERNEL));
++	virtqueue_kick(vb->notify_vq);
++
++	// sync with virtio-device
++	while (!virtqueue_get_buf(vb->notify_vq, &len) &&
++	       !virtqueue_is_broken(vb->notify_vq))
++		cpu_relax();
++}
++
++/* Called with preemption disabled; completion must precede page exposure. */
++int ll_request_install(struct zone *zone, u64 frame, unsigned int order, size_t core)
++{
++	struct scatterlist out, in, *sgs[] = { &out, &in };
++	u32 len = 0;
++	unsigned long flags;
++	ll_balloon_t *vb = READ_ONCE(balloon);
++	ll_install_info_t *info;
++	struct virtqueue *vq;
++	int zone_type = zone_get_type(zone), ret;
++	void *done;
++
++	if (!vb || core >= vb->num_cpus || zone_type < 0 ||
++	    vb->map_zone_type[zone_type] == LLFREE_ZONE_NONE ||
++	    order > LLFREE_MAX_ORDER)
++		return -ENODEV;
++	if (frame + (1UL << order) > llfree_frames(zone->llfree))
++		return -EINVAL;
++
++	local_irq_save(flags);
++	info = &vb->install_buf[core];
++	vq = vb->install_vqs[core];
++	*info = (ll_install_info_t) {
++		.node = zone_to_nid(zone),
++		.zone = vb->map_zone_type[zone_type],
++		.frame = frame,
++		.order = cpu_to_le32(order),
++		.status = cpu_to_le32(EIO),
++	};
++	BUILD_BUG_ON(offsetof(ll_install_info_t, status) != 20);
++	sg_init_one(&out, info, offsetof(ll_install_info_t, status));
++	sg_init_one(&in, &info->status, sizeof(info->status));
++	ret = virtqueue_add_sgs(vq, sgs, 1, 1, info, GFP_ATOMIC);
++	if (ret)
++		goto out;
++	virtqueue_kick(vq);
++	do {
++		done = virtqueue_get_buf(vq, &len);
++		if (done)
++			break;
++		if (virtqueue_is_broken(vq)) {
++			ret = -EIO;
++			goto out;
++		}
++		cpu_relax();
++	} while (1);
++	ret = len == sizeof(info->status) ? -(int)le32_to_cpu(info->status) : -EIO;
++out:
++	if (ret)
++		atomic64_inc(&install_failure);
++	else {
++		atomic64_inc(&install_success);
++		if (order == LLFREE_MAX_ORDER)
++			atomic64_inc(&install_order10);
++	}
++	local_irq_restore(flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(ll_request_install);
++
++/// Shrink the page cache
++static void shrink_pagecache_func(struct work_struct *work)
++{
++	uint32_t reclaimed_pages = 0;
++	uint32_t shrink_pagecache = 0;
++	uint32_t node = 0;
++
++	struct ll_balloon *vb =
++		container_of(work, struct ll_balloon, shrink_pagecache_work);
++
++	virtio_cread_le(vb->vdev, struct ll_balloon_config,
++			shrink_pagecache, &shrink_pagecache);
++
++	for_each_node(node) {
++		reclaimed_pages +=
++			shrink_pagecache_for_reclaim(node, shrink_pagecache - min(shrink_pagecache, reclaimed_pages));
++	}
++
++	shrink_pagecache -= min(shrink_pagecache, reclaimed_pages);
++	virtio_cwrite_le(vb->vdev, struct ll_balloon_config,
++			 shrink_pagecache, &shrink_pagecache);
++
++	// tell virtio-device to retry reclamation
++	ll_notify(vb, PAGECACHE_DROPPED);
++}
++
++/// Executed if the config changes
++static void ll_config_changed(struct virtio_device *vdev)
++{
++	ll_balloon_t *vb;
++	uint32_t shrink_pagecache;
++
++	if (!virtio_has_feature(vdev, LL_BALLOON_F_SHRINK_PAGECACHE)) {
++		return;
++	}
++
++	vb = (ll_balloon_t *)vdev->priv;
++
++	// dispatch
++	virtio_cread_le(vdev, struct ll_balloon_config,
++			shrink_pagecache,
++			&shrink_pagecache);
++
++	if (shrink_pagecache > 0) {
++		queue_work(system_freezable_wq, &vb->shrink_pagecache_work);
++	}
++}
++
++static int init_vqs(ll_balloon_t *vb)
++{
++	unsigned int num_vqs = LL_BALLOON_VQ_COUNT + vb->num_cpus;
++	struct virtqueue **vqs;
++	struct virtqueue_info *info;
++	int err, i;
++
++	vqs = kcalloc(num_vqs, sizeof(*vqs), GFP_KERNEL);
++	info = kcalloc(num_vqs, sizeof(*info), GFP_KERNEL);
++	if (!vqs || !info) {
++		err = -ENOMEM;
++		goto out;
++	}
++	info[LL_BALLOON_VQ_INFO].name = "llfree info";
++	info[LL_BALLOON_VQ_NOTIFY].name = "llfree notify";
++	for (i = 0; i < vb->num_cpus; i++)
++		info[LL_BALLOON_VQ_COUNT + i].name = "llfree install";
++	err = virtio_find_vqs(vb->vdev, num_vqs, vqs, info, NULL);
++	if (err)
++		goto out;
++	vb->info_vq = vqs[LL_BALLOON_VQ_INFO];
++	vb->notify_vq = vqs[LL_BALLOON_VQ_NOTIFY];
++	for (i = 0; i < vb->num_cpus; i++)
++		vb->install_vqs[i] = vqs[LL_BALLOON_VQ_COUNT + i];
++out:
++	kfree(info);
++	kfree(vqs);
++	return err;
++}
++
++static int ll_probe(struct virtio_device *vdev)
++{
++	ll_balloon_t *ll_b;
++	int err;
++	uint32_t num_cores;
++
++	if (!virtio_has_feature(vdev, LL_BALLOON_F_INSTALL_RESULT))
++		return -ENODEV;
++	if (num_online_nodes() != 1)
++		return -EOPNOTSUPP;
++	if (!vdev->config->get)
++		return -ENODEV;
++
++	ll_b = kzalloc(sizeof(*ll_b), GFP_KERNEL);
++	if (!ll_b)
++		return -ENOMEM;
++	vdev->priv = ll_b;
++
++	INIT_WORK(&ll_b->shrink_pagecache_work, shrink_pagecache_func);
++
++	ll_init_zone_types((enum ll_zone_type *)&ll_b->map_zone_type);
++
++	ll_b->vdev = vdev;
++
++	num_cores = num_online_cpus();
++	ll_b->num_cpus = num_cores;
++	ll_b->install_buf =
++		kzalloc(sizeof(ll_install_info_t) * num_cores, GFP_KERNEL);
++	ll_b->install_vqs =
++		kzalloc(sizeof(struct virtqueue *) * num_cores, GFP_KERNEL);
++	if (!ll_b->install_buf || !ll_b->install_vqs) {
++		kfree(ll_b->install_buf);
++		kfree(ll_b->install_vqs);
++		kfree(ll_b);
++		return -ENOMEM;
++	}
++
++	err = init_vqs(ll_b);
++	if (err) {
++		kfree(ll_b->install_buf);
++		kfree(ll_b->install_vqs);
++		kfree(ll_b);
++		return err;
++	}
++
++	balloon = ll_b;
++
++	virtio_device_ready(vdev);
++
++	// directly send our zone info to our virtio-device
++	ll_send_info(ll_b);
++	proc_create_single("llfree_protocol", 0444, NULL, ll_protocol_show);
++	dev_info(&vdev->dev, "HyperAlloc install-result-v1 ready, %u CPUs\n", num_cores);
++
++	return 0;
++}
++
++static void remove_common(ll_balloon_t *vb)
++{
++	/* Now we reset the device so we can clean up the queues. */
++	virtio_reset_device(vb->vdev);
++	vb->vdev->config->del_vqs(vb->vdev);
++}
++
++static void ll_remove(struct virtio_device *vdev)
++{
++	ll_balloon_t *vb = vdev->priv;
++
++	remove_proc_entry("llfree_protocol", NULL);
++	WRITE_ONCE(balloon, NULL);
++	cancel_work_sync(&vb->shrink_pagecache_work);
++	remove_common(vb);
++	kfree(vb->install_vqs);
++	kfree(vb->install_buf);
++	kfree(vb);
++}
++
++static unsigned int features[] = {
++	LL_BALLOON_F_INSTALL_RESULT,
++	LL_BALLOON_F_SHRINK_PAGECACHE,
++	LL_BALLOON_F_AUTO_MODE,
++};
++
++// TODO: try again with own id
++// IDs can't be arbitrarily chosen as it seems, for now
++// say that we are virtio-balloon
++static const struct virtio_device_id id_table[] = {
++	{ VIRTIO_ID_BALLOON, VIRTIO_DEV_ANY_ID },
++	{ 0 },
++};
++
++static struct virtio_driver virtio_llfree_balloon_driver = {
++	.feature_table = features,
++	.feature_table_size = ARRAY_SIZE(features),
++	.driver.name = KBUILD_MODNAME,
++	.driver.owner = THIS_MODULE,
++	.driver.suppress_bind_attrs = true,
++	.id_table = id_table,
++	.probe = ll_probe,
++	.remove = ll_remove,
++	.config_changed = ll_config_changed
++};
++
++module_virtio_driver(virtio_llfree_balloon_driver);
++MODULE_DEVICE_TABLE(virtio, id_table);
++MODULE_DESCRIPTION("Virtio llfree balloon driver");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 7fb7331..9daae40 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -877,6 +877,9 @@ enum zone_type {
+ #define ASYNC_AND_SYNC 2
+ 
+ struct zone {
++#ifdef CONFIG_LLFREE
++	struct llfree *llfree;
++#endif
+ 	/* Read-mostly fields */
+ 
+ 	/* zone watermarks, access with *_wmark_pages(zone) macros */
+diff --git a/include/linux/vmscan.h b/include/linux/vmscan.h
+new file mode 100644
+index 0000000..2948972
+--- /dev/null
++++ b/include/linux/vmscan.h
+@@ -0,0 +1,5 @@
++#ifndef _LINUX_LLFREE_VMSCAN_H
++#define _LINUX_LLFREE_VMSCAN_H
++#include <linux/types.h>
++unsigned long shrink_pagecache_for_reclaim(u32 node, u32 nr_to_reclaim);
++#endif
+diff --git a/include/uapi/linux/virtio_llfree_balloon.h b/include/uapi/linux/virtio_llfree_balloon.h
+new file mode 100644
+index 0000000..e6d6256
+--- /dev/null
++++ b/include/uapi/linux/virtio_llfree_balloon.h
+@@ -0,0 +1,43 @@
++#ifndef _LINUX_VIRTIO_LLFREE_BALLOON_H
++#define _LINUX_VIRTIO_LLFREE_BALLOON_H
++/* This header is BSD licensed so anyone can use the definitions to implement
++ * compatible drivers/servers.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of IBM nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL IBM OR CONTRIBUTORS BE LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE. */
++#include <linux/virtio_types.h>
++
++/* The feature bitmap for virtio llfree balloon */
++#define LL_BALLOON_F_SHRINK_PAGECACHE 1
++#define LL_BALLOON_F_AUTO_MODE 4
++#define LL_BALLOON_F_VFIO 6
++#define LL_BALLOON_F_KVM_MAP_IOCTL 7
++#define LL_BALLOON_F_INSTALL_RESULT 8
++
++
++struct ll_balloon_config {
++	/* Number of pages host wants Guest to shrink the pagecache. */
++	__le32 shrink_pagecache;
++};
++
++#endif /* _LINUX_VIRTIO_LLFREE_BALLOON_H */
+diff --git a/mm/Kconfig b/mm/Kconfig
+index ca3f146..f3a6b73 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -1382,3 +1382,5 @@ config FIND_NORMAL_PAGE
+ source "mm/damon/Kconfig"
+ 
+ endmenu
++
++source "mm/llfree/Kconfig"
+diff --git a/mm/Makefile b/mm/Makefile
+index 21abb33..3013e65 100644
+--- a/mm/Makefile
++++ b/mm/Makefile
+@@ -146,3 +146,5 @@ obj-$(CONFIG_SHRINKER_DEBUG) += shrinker_debug.o
+ obj-$(CONFIG_EXECMEM) += execmem.o
+ obj-$(CONFIG_TMPFS_QUOTA) += shmem_quota.o
+ obj-$(CONFIG_PT_RECLAIM) += pt_reclaim.o
++
++obj-$(CONFIG_LLFREE) += llfree/
+diff --git a/mm/llfree/Kconfig b/mm/llfree/Kconfig
+new file mode 100644
+index 0000000..3f66537
+--- /dev/null
++++ b/mm/llfree/Kconfig
+@@ -0,0 +1,11 @@
++# SPDX-License-Identifier: GPL-2.0-only
++config LLFREE
++	bool "HyperAlloc LLFree page allocator"
++	depends on X86_64 && SPARSEMEM && SLUB
++	depends on !CMA && !MEMORY_HOTPLUG && !MEMORY_HOTREMOVE
++	depends on !DEFERRED_STRUCT_PAGE_INIT && !ZONE_DEVICE
++	help
++	  HyperAlloc shared-metadata allocator, ported from its artifact release.
++	  Uses 4 KiB pages, all allocation orders through 4 MiB, and 2 MiB
++	  host reclaim granularity. Memory hotplug, CMA and device memory are
++	  not supported by this port.
+diff --git a/mm/llfree/Makefile b/mm/llfree/Makefile
+new file mode 100644
+index 0000000..99cc19c
+--- /dev/null
++++ b/mm/llfree/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_LLFREE) += llfree-core.o
++ccflags-y += -I$(srctree)/mm/llfree/private -I$(srctree)/mm/llfree/llc/src
++llfree-core-y := llfree.o llc/src/llfree.o llc/src/bitfield.o llc/src/child.o llc/src/local.o llc/src/lower.o llc/src/tree.o
+diff --git a/mm/llfree/include/llfree_alloc.h b/mm/llfree/include/llfree_alloc.h
+new file mode 100644
+index 0000000..548d46c
+--- /dev/null
++++ b/mm/llfree/include/llfree_alloc.h
+@@ -0,0 +1,17 @@
++#ifndef _LLFREE
++#define _LLFREE
++
++#ifdef CONFIG_LLFREE
++
++#include <linux/init.h>
++#include <llfree.h>
++#ifndef LLFREE_MAX_ORDER
++#define LLFREE_MAX_ORDER 10U
++#endif
++
++/// Create a new allocator instance for the given node
++llfree_t *__init llfree_node_init(size_t node, size_t cores, size_t start_pfn,
++			   size_t pages);
++
++#endif // CONFIG_LLFREE
++#endif // _LLFREE
+diff --git a/mm/llfree/include/llfree_types.h b/mm/llfree/include/llfree_types.h
+new file mode 100644
+index 0000000..a8cafb7
+--- /dev/null
++++ b/mm/llfree/include/llfree_types.h
+@@ -0,0 +1,3 @@
++#pragma once
++
++#include <linux/types.h>
+diff --git a/mm/llfree/llc b/mm/llfree/llc
+new file mode 120000
+index 0000000..bd6c564
+--- /dev/null
++++ b/mm/llfree/llc
+@@ -0,0 +1 @@
++../../../llfree-c
+\ No newline at end of file
+diff --git a/mm/llfree/llfree.c b/mm/llfree/llfree.c
+new file mode 100644
+index 0000000..8b57c08
+--- /dev/null
++++ b/mm/llfree/llfree.c
+@@ -0,0 +1,157 @@
++#include "llfree_platform.h"
++
++#include <linux/align.h>
++#include <linux/bug.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/memblock.h>
++#include <linux/mmzone.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++
++#include <llfree_alloc.h>
++#include "llfree_inner.h"
++
++MODULE_LICENSE("MIT");
++MODULE_DESCRIPTION("LLFree Allocator");
++MODULE_AUTHOR("Lars Wrenger");
++
++void noinline llfree_panic(void)
++{
++	llfree_warn("panic");
++}
++
++llfree_t *__init llfree_node_init(size_t node, size_t cores, size_t start_pfn,
++			   size_t pages)
++{
++	cores = 1; // only one core for now
++
++	u64 offset = align_down(start_pfn, 1 << LLFREE_MAX_ORDER);
++	pages += start_pfn - offset; // correct length
++
++	pr_info("node=%" PRIuS ", offset=%" PRIu64 ", pages=%" PRIuS
++		", trees=%" PRIuS ", children=%" PRIuS "\n",
++		node, offset, pages, div_ceil(pages, LLFREE_TREE_SIZE),
++		div_ceil(pages, LLFREE_CHILD_SIZE));
++
++	llfree_t *self =
++		memblock_alloc_node(sizeof(llfree_t), LLFREE_CACHE_SIZE, node);
++
++	llfree_meta_size_t m = llfree_metadata_size(cores, pages);
++	llfree_meta_t meta = {
++		.local = memblock_alloc_node(m.local, LLFREE_CACHE_SIZE, node),
++		.trees = memblock_alloc_node(m.trees, LLFREE_CACHE_SIZE, node),
++		.lower = memblock_alloc_node(m.lower, LLFREE_CACHE_SIZE, node),
++	};
++	llfree_result_t res =
++		llfree_init(self, cores, pages, LLFREE_INIT_ALLOC, meta);
++
++	BUG_ON(!llfree_is_ok(res));
++
++	return self;
++}
++
++static void *frag_start(struct seq_file *m, loff_t *pos)
++{
++	pg_data_t *pgdat;
++	loff_t node = *pos;
++
++	for (pgdat = first_online_pgdat(); pgdat && node;
++	     pgdat = next_online_pgdat(pgdat))
++		--node;
++
++	return pgdat;
++}
++
++static void *frag_next(struct seq_file *m, void *arg, loff_t *pos)
++{
++	pg_data_t *pgdat = (pg_data_t *)arg;
++
++	(*pos)++;
++	return next_online_pgdat(pgdat);
++}
++
++static void frag_stop(struct seq_file *m, void *arg)
++{
++}
++
++static void writer(void *arg, char *str)
++{
++	seq_printf((struct seq_file *)arg, "%s", str);
++}
++
++static int llfree_show(struct seq_file *m, void *arg)
++{
++	pg_data_t *pgdat = (pg_data_t *)arg;
++	struct zone *zone;
++	struct zone *node_zones = pgdat->node_zones;
++
++	for (zone = node_zones; zone - node_zones < MAX_NR_ZONES; ++zone) {
++		llfree_t *llfree = zone->llfree;
++
++		if (!populated_zone(zone) || llfree == NULL)
++			continue;
++
++		llfree_print_debug(llfree, writer, m);
++	}
++	return 0;
++}
++
++static int llfree_frag_show(struct seq_file *m, void *arg)
++{
++	pg_data_t *pgdat = (pg_data_t *)arg;
++	struct zone *zone;
++	struct zone *node_zones = pgdat->node_zones;
++
++	for (zone = node_zones; zone - node_zones < MAX_NR_ZONES; ++zone) {
++		if (!populated_zone(zone))
++			continue;
++
++		for (size_t i = 0; i < llfree_frames(zone->llfree);
++		     i += 1 << LLFREE_HUGE_ORDER) {
++			size_t free = llfree_free_at(zone->llfree, i,
++						     LLFREE_HUGE_ORDER);
++			// [0, 9], where 0 is entirely allocated and 9 is free
++			size_t level = free == 0 ? 0 : (free / 64 + 1);
++			seq_printf(m, "%zu", level);
++		}
++		seq_printf(m, "\n");
++	}
++	return 0;
++}
++
++static const struct seq_operations llfree_op = {
++	.start = frag_start,
++	.next = frag_next,
++	.stop = frag_stop,
++	.show = llfree_show,
++};
++
++static const struct seq_operations llfree_frag_op = {
++	.start = frag_start,
++	.next = frag_next,
++	.stop = frag_stop,
++	.show = llfree_frag_show,
++};
++
++static int __init llfree_init_module(void)
++{
++	pr_info("Setup llfree debugging");
++	proc_create_seq("llfree", 0444, NULL, &llfree_op);
++	proc_create_seq("llfree_frag", 0444, NULL, &llfree_frag_op);
++	return 0;
++}
++module_init(llfree_init_module);
++
++
++
++static void llfree_cleanup_module(void)
++{
++	pr_info("uninit\n");
++}
++module_exit(llfree_cleanup_module);
++
++EXPORT_SYMBOL(llfree_free_frames);
++EXPORT_SYMBOL(llfree_free_huge);
++// EXPORT_SYMBOL(llfree_dump);
++// EXPORT_SYMBOL(llfree_print);
+diff --git a/mm/llfree/private/llfree_platform.h b/mm/llfree/private/llfree_platform.h
+new file mode 100644
+index 0000000..61063c3
+--- /dev/null
++++ b/mm/llfree/private/llfree_platform.h
+@@ -0,0 +1,240 @@
++#pragma once
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/printk.h>
++#include <linux/bug.h>
++#include <linux/kernel.h>
++#include <asm/page_types.h>
++#include <asm/pgtable_types.h>
++
++#define ll_align(align) __attribute__((aligned(align)))
++
++#define UINT64_MAX 0xffffffffffffffffllu
++#define PRIu64 "llu"
++#define PRIx64 "llx"
++#define PRId64 "lld"
++#define PRIuS "zu"
++#define PRIxS "zx"
++
++/// Number of Bytes in cacheline
++#define LLFREE_CACHE_SIZE 64u
++
++#define LLFREE_FRAME_BITS PAGE_SHIFT
++/// Size of a base frame
++#define LLFREE_FRAME_SIZE (1u << LLFREE_FRAME_BITS)
++
++/// Order of a huge frame
++#define LLFREE_HUGE_ORDER HUGETLB_PAGE_ORDER
++/// Maximum order that can be allocated
++#define LLFREE_MAX_ORDER (LLFREE_HUGE_ORDER + 1u)
++
++/// Num of bits of the larges atomic type of the architecture
++#define LLFREE_ATOMIC_ORDER 6u
++#define LLFREE_ATOMIC_SIZE (1u << LLFREE_ATOMIC_ORDER)
++
++/// Number of frames in a child
++#define LLFREE_CHILD_ORDER LLFREE_HUGE_ORDER
++#define LLFREE_CHILD_SIZE (1u << LLFREE_CHILD_ORDER)
++
++/// Number of frames in a tree
++#define LLFREE_TREE_CHILDREN_ORDER 3u
++#define LLFREE_TREE_CHILDREN (1u << LLFREE_TREE_CHILDREN_ORDER)
++#define LLFREE_TREE_ORDER (LLFREE_HUGE_ORDER + LLFREE_TREE_CHILDREN_ORDER)
++#define LLFREE_TREE_SIZE (1u << LLFREE_TREE_ORDER)
++
++/// Enable reserve on free heuristic
++#define LLFREE_ENABLE_FREE_RESERVE false
++/// Allocate first from already install huge frames, before falling back to evicted ones
++#define LLFREE_PREFER_INSTALLED true
++
++/// Minimal alignment the llc requires for its memory range
++#define LLFREE_ALIGN (1u << LLFREE_MAX_ORDER << LLFREE_FRAME_BITS)
++
++#define llfree_warn(str, ...) pr_warn(str, ##__VA_ARGS__)
++
++#define VERBOSE 1
++#ifdef VERBOSE
++#define llfree_info_start() pr_info("")
++#define llfree_info_cont(str, ...) pr_cont(str, ##__VA_ARGS__)
++#define llfree_info_end()
++#define llfree_info(str, ...) pr_info(str, ##__VA_ARGS__)
++#else
++#define llfree_info(str, ...)
++#define llfree_info_start()
++#define llfree_info_cont(str, ...)
++#define llfree_info_end()
++#endif
++
++#ifdef DEBUG
++#define llfree_debug(str, ...) pr_debug(str, ##__VA_ARGS__)
++#else
++#define llfree_debug(str, ...)
++#endif
++
++void noinline llfree_panic(void);
++
++#define assert(cond)                     \
++	do {                             \
++		if (unlikely(!(cond))) { \
++			llfree_panic();  \
++			BUG();           \
++		}                        \
++	} while (0)
++
++static const int ATOM_LOAD_ORDER = __ATOMIC_ACQUIRE;
++static const int ATOM_UPDATE_ORDER = __ATOMIC_ACQ_REL;
++static const int ATOM_STORE_ORDER = __ATOMIC_RELEASE;
++
++/* GCC compatibility */
++#if !defined(__clang__) && defined(__GNUC__)
++
++#define __c11_atomic_compare_exchange_strong(obj, expected, desired,         \
++					     order_success, order_failure)   \
++	__extension__({                                                      \
++		__auto_type __atomic_compare_exchange_ptr = (obj);           \
++		__typeof__((void)0, *__atomic_compare_exchange_ptr)          \
++			__atomic_compare_exchange_tmp = (desired);           \
++		__atomic_compare_exchange(__atomic_compare_exchange_ptr,     \
++					  (expected),                        \
++					  &__atomic_compare_exchange_tmp, 0, \
++					  (order_success), (order_failure)); \
++	})
++
++#define __c11_atomic_compare_exchange_weak(obj, expected, desired,           \
++					   order_success, order_failure)     \
++	__extension__({                                                      \
++		__auto_type __atomic_compare_exchange_ptr = (obj);           \
++		__typeof__((void)0, *__atomic_compare_exchange_ptr)          \
++			__atomic_compare_exchange_tmp = (desired);           \
++		__atomic_compare_exchange(__atomic_compare_exchange_ptr,     \
++					  (expected),                        \
++					  &__atomic_compare_exchange_tmp, 1, \
++					  (order_success), (order_failure)); \
++	})
++
++#define __c11_atomic_load(obj, order)                                          \
++	__extension__({                                                        \
++		__auto_type __atomic_load_ptr = (obj);                         \
++		__typeof__((void)0, *__atomic_load_ptr) __atomic_load_tmp;     \
++		__atomic_load(__atomic_load_ptr, &__atomic_load_tmp, (order)); \
++		__atomic_load_tmp;                                             \
++	})
++
++#define __c11_atomic_store(obj, val, order)                                   \
++	__extension__({                                                       \
++		__auto_type __atomic_store_ptr = (obj);                       \
++		__typeof__((void)0, *__atomic_store_ptr) __atomic_store_tmp = \
++			(val);                                                \
++		__atomic_store(__atomic_store_ptr, &__atomic_store_tmp,       \
++			       (order));                                      \
++	})
++
++#define __c11_atomic_exchange(obj, val, order)                                \
++	__extension__({                                                       \
++		__auto_type __atomic_exchange_ptr = (obj);                    \
++		__typeof__((void)0, *__atomic_exchange_ptr) __atomic_exchange_tmp = \
++			(val);                                                \
++		__atomic_exchange(__atomic_exchange_ptr, &__atomic_exchange_tmp, \
++				   &__atomic_exchange_tmp, (order));            \
++		__atomic_exchange_tmp;                                        \
++	}
++
++#endif
++
++/// Iterates over a Range between multiples of len starting at idx.
++///
++/// Starting at idx up to the next Multiple of len (exclusive). Then the next
++/// step will be the highest multiple of len less than idx. (_base_idx)
++/// Loop will end after len iterations.
++/// code will be executed in each loop.
++/// The current loop value can accessed by current_i
++#define for_offsetted(idx, len)                                   \
++	for (size_t _i = 0, _offset = (idx) % (len),              \
++		    _base_idx = (idx)-_offset, current_i = (idx); \
++	     _i < (len);                                          \
++	     _i = _i + 1, current_i = _base_idx + ((_i + _offset) % (len)))
++
++/// Checks if `obj` contains `expected` and writes `disired` to it if so.
++#define atom_cmp_exchange(obj, expected, desired)                       \
++	({                                                              \
++		llfree_debug("cmpxchg");                                \
++		__c11_atomic_compare_exchange_strong((obj), (expected), \
++						     (desired),         \
++						     ATOM_UPDATE_ORDER, \
++						     ATOM_LOAD_ORDER);  \
++	})
++/// Checks if `obj` contains `expected` and writes `disired` to it if so.
++#define atom_cmp_exchange_weak(obj, expected, desired)                \
++	({                                                            \
++		llfree_debug("cmpxchg");                              \
++		__c11_atomic_compare_exchange_weak((obj), (expected), \
++						   (desired),         \
++						   ATOM_UPDATE_ORDER, \
++						   ATOM_LOAD_ORDER);  \
++	})
++
++#define atom_load(obj)                                   \
++	({                                               \
++		llfree_debug("load");                    \
++		__c11_atomic_load(obj, ATOM_LOAD_ORDER); \
++	})
++#define atom_store(obj, val)                                    \
++	({                                                      \
++		llfree_debug("store");                          \
++		__c11_atomic_store(obj, val, ATOM_STORE_ORDER); \
++	})
++
++#define atom_swap(obj, desired)                                        \
++	({                                                             \
++		llfree_debug("swap");                                   \
++		__c11_atomic_exchange(obj, desired, ATOM_UPDATE_ORDER); \
++	})
++
++/// Atomic fetch-modify-update macro.
++///
++/// This macro loads the value at `atom_ptr`, stores its llfree_result in `old_val`
++/// and then executes the `fn` function with a pointer to the loaded value,
++/// which should be modified and is then stored atomically with CAS.
++/// The function `fn` can take any number of extra parameters,
++/// that are passed directly into it.
++///
++/// Returns if the update was successfull.
++/// Fails only if `fn` returns false.
++///
++/// Example:
++/// ```
++/// bool my_update(uint64_t *value, bool argument1, int argument 2) {
++/// 	if (argument1) {
++///     	*value *= *value;
++///		return true;
++///	}
++///     return false;
++/// }
++///
++/// _Atomic uint64_t my_atomic;
++/// uint64_t old;
++/// if (!atom_update(&my_atomic, old, my_update, false, 42)) {
++/// 	assert(!"our my_update function returned false, cancelling the update");
++/// }
++/// printf("old value %u\n", old);
++/// ```
++#define atom_update(atom_ptr, old_val, fn, ...)                            \
++	({                                                                 \
++		/* NOLINTBEGIN */                                          \
++		llfree_debug("update");                                    \
++		bool _ret = false;                                         \
++		(old_val) = atom_load(atom_ptr);                           \
++		while (true) {                                             \
++			__typeof(old_val) value = (old_val);               \
++			if (!(fn)(&value, ##__VA_ARGS__))                  \
++				break;                                     \
++			if (atom_cmp_exchange_weak((atom_ptr), &(old_val), \
++						   value)) {               \
++				_ret = true;                               \
++				break;                                     \
++			}                                                  \
++		}                                                          \
++		_ret;                                                      \
++		/* NOLINTEND */                                            \
++	})
+diff --git a/mm/mm_init.c b/mm/mm_init.c
+index 7712d88..91057d1 100644
+--- a/mm/mm_init.c
++++ b/mm/mm_init.c
+@@ -15,6 +15,7 @@
+ #include <linux/sched.h>
+ #include <linux/mman.h>
+ #include <linux/memblock.h>
++#include <llfree_alloc.h>
+ #include <linux/page-isolation.h>
+ #include <linux/padata.h>
+ #include <linux/nmi.h>
+@@ -2703,6 +2704,19 @@ void __init mm_core_init(void)
+ 	 */
+ 	kho_memory_init();
+ 
++#ifdef CONFIG_LLFREE
++	{
++		struct zone *zone;
++
++		BUILD_BUG_ON(MAX_PAGE_ORDER != LLFREE_MAX_ORDER);
++		for_each_populated_zone(zone) {
++			zone->llfree = llfree_node_init(zone_to_nid(zone),
++				num_possible_cpus(), zone->zone_start_pfn,
++				zone->spanned_pages);
++			BUG_ON(!zone->llfree);
++		}
++	}
++#endif
+ 	memblock_free_all();
+ 	mem_init();
+ 	kmem_cache_init();
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index ed82ee5..b618e44 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -17,6 +17,10 @@
+ 
+ #include <linux/stddef.h>
+ #include <linux/mm.h>
++#include <llfree_alloc.h>
++#ifdef CONFIG_VIRTIO_LLFREE_BALLOON
++extern int ll_request_install(struct zone *, u64, unsigned int, size_t);
++#endif
+ #include <linux/highmem.h>
+ #include <linux/interrupt.h>
+ #include <linux/jiffies.h>
+@@ -689,6 +693,8 @@ static inline int pindex_to_order(unsigned int pindex)
+ 
+ static inline bool pcp_allowed_order(unsigned int order)
+ {
++	if (IS_ENABLED(CONFIG_LLFREE))
++		return false;
+ 	if (order <= PAGE_ALLOC_COSTLY_ORDER)
+ 		return true;
+ #ifdef CONFIG_TRANSPARENT_HUGEPAGE
+@@ -942,6 +948,23 @@ static inline void __free_one_page(struct page *page,
+ 		struct zone *zone, unsigned int order,
+ 		int migratetype, fpi_t fpi_flags)
+ {
++#ifdef CONFIG_LLFREE
++	unsigned long flags;
++	unsigned long base = ALIGN_DOWN(zone->zone_start_pfn, 1UL << LLFREE_MAX_ORDER);
++	llfree_result_t result;
++	unsigned int cpu;
++
++	VM_BUG_ON(!zone->llfree);
++	VM_BUG_ON_PAGE(bad_range(zone, page), page);
++	cpu = get_cpu();
++	local_irq_save(flags);
++	result = llfree_put(zone->llfree, cpu, pfn - base, llflags(order));
++	BUG_ON(!llfree_is_ok(result));
++	__mod_zone_page_state(zone, NR_FREE_PAGES, 1 << order);
++	local_irq_restore(flags);
++	put_cpu();
++	return;
++#endif
+ 	struct capture_control *capc = task_capc(zone);
+ 	unsigned long buddy_pfn = 0;
+ 	unsigned long combined_pfn;
+@@ -1532,6 +1555,13 @@ static void free_one_page(struct zone *zone, struct page *page,
+ 	struct llist_head *llhead;
+ 	unsigned long flags;
+ 
++	if (IS_ENABLED(CONFIG_LLFREE)) {
++		__free_one_page(page, pfn, zone, order,
++			get_pfnblock_migratetype(page, pfn), fpi_flags);
++		count_vm_events(PGFREE, 1 << order);
++		return;
++	}
++
+ 	if (unlikely(fpi_flags & FPI_TRYLOCK)) {
+ 		if (!spin_trylock_irqsave(&zone->lock, flags)) {
+ 			add_page_to_zone_llist(zone, page, order);
+@@ -2590,6 +2620,13 @@ int decay_pcp_high(struct zone *zone, struct per_cpu_pages *pcp)
+  */
+ void drain_zone_pages(struct zone *zone, struct per_cpu_pages *pcp)
+ {
++#ifdef CONFIG_LLFREE
++	if (zone->llfree) {
++		llfree_result_t result = llfree_drain(zone->llfree, smp_processor_id());
++		BUG_ON(!llfree_is_ok(result));
++	}
++	return;
++#endif
+ 	int to_drain, batch;
+ 
+ 	batch = READ_ONCE(pcp->batch);
+@@ -2607,6 +2644,13 @@ void drain_zone_pages(struct zone *zone, struct per_cpu_pages *pcp)
+  */
+ static void drain_pages_zone(unsigned int cpu, struct zone *zone)
+ {
++#ifdef CONFIG_LLFREE
++	if (zone->llfree) {
++		llfree_result_t result = llfree_drain(zone->llfree, cpu);
++		BUG_ON(!llfree_is_ok(result));
++	}
++	return;
++#endif
+ 	struct per_cpu_pages *pcp = per_cpu_ptr(zone->per_cpu_pageset, cpu);
+ 	int count;
+ 
+@@ -3330,6 +3374,44 @@ struct page *rmqueue(struct zone *preferred_zone,
+ 			int migratetype)
+ {
+ 	struct page *page;
++#ifdef CONFIG_LLFREE
++	unsigned long flags;
++	unsigned int cpu = get_cpu();
++	llflags_t request = llflags(order);
++	llfree_result_t result;
++
++	request.movable = !!(gfp_flags & __GFP_MOVABLE);
++	local_irq_save(flags);
++	result = llfree_get(zone->llfree, cpu, request);
++	page = NULL;
++	if (llfree_is_ok(result)) {
++		int error = 0;
++
++		if (result.reclaimed) {
++#ifdef CONFIG_VIRTIO_LLFREE_BALLOON
++			error = ll_request_install(zone, result.frame, order, cpu);
++#else
++			error = -ENODEV;
++#endif
++		}
++		if (error) {
++			llfree_result_t undone = llfree_put(zone->llfree, cpu,
++							result.frame, llflags(order));
++			BUG_ON(!llfree_is_ok(undone));
++		} else {
++			page = pfn_to_page(ALIGN_DOWN(zone->zone_start_pfn,
++					1UL << LLFREE_MAX_ORDER) + result.frame);
++			__mod_zone_page_state(zone, NR_FREE_PAGES, -(1 << order));
++			__count_zid_vm_events(PGALLOC, zone_idx(zone), 1 << order);
++			zone_statistics(preferred_zone, zone, 1 << order);
++		}
++	} else {
++		BUG_ON(result.error != LLFREE_ERR_MEMORY);
++	}
++	local_irq_restore(flags);
++	put_cpu();
++	return page;
++#endif
+ 
+ 	if (likely(pcp_allowed_order(order))) {
+ 		page = rmqueue_pcplist(preferred_zone, zone, order,
+@@ -3361,6 +3443,8 @@ struct page *rmqueue(struct zone *preferred_zone,
+ static void reserve_highatomic_pageblock(struct page *page, int order,
+ 					 struct zone *zone)
+ {
++	if (IS_ENABLED(CONFIG_LLFREE))
++		return;
+ 	int mt;
+ 	unsigned long max_managed, flags;
+ 
+@@ -3563,6 +3647,10 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
+ 	if (free_pages <= min + z->lowmem_reserve[highest_zoneidx])
+ 		return false;
+ 
++	/* LLFree tracks contiguous availability in its shared bitmap. */
++	if (IS_ENABLED(CONFIG_LLFREE))
++		return true;
++
+ 	/* If this is an order-0 request then the watermark is fine */
+ 	if (!order)
+ 		return true;
+@@ -5000,6 +5088,19 @@ unsigned long alloc_pages_bulk_noprof(gfp_t gfp, int preferred_nid,
+ 	unsigned int alloc_flags = ALLOC_WMARK_LOW;
+ 	int nr_populated = 0, nr_account = 0;
+ 
++	if (IS_ENABLED(CONFIG_LLFREE)) {
++		while (nr_populated < nr_pages) {
++			if (!page_array[nr_populated]) {
++				page = __alloc_pages_noprof(gfp, 0, preferred_nid, nodemask);
++				if (!page)
++					break;
++				page_array[nr_populated] = page;
++			}
++			nr_populated++;
++		}
++		return nr_populated;
++	}
++
+ 	/*
+ 	 * Skip populated array elements to determine if any pages need
+ 	 * to be allocated before disabling IRQs.
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index b2fc8b6..94ca870 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -13,6 +13,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/mm.h>
++#include <linux/vmscan.h>
+ #include <linux/sched/mm.h>
+ #include <linux/module.h>
+ #include <linux/gfp.h>
+@@ -7917,3 +7918,35 @@ void reclaim_unregister_node(struct node *node)
+ 	return device_remove_file(&node->dev, &dev_attr_reclaim);
+ }
+ #endif
++
++#ifdef CONFIG_VIRTIO_LLFREE_BALLOON
++unsigned long shrink_pagecache_for_reclaim(uint32_t num_numa_node, uint32_t nr_to_reclaim)
++{
++	struct scan_control sc = {
++		.nr_to_reclaim = nr_to_reclaim,
++		.gfp_mask = GFP_HIGHUSER_MOVABLE,
++		.reclaim_idx = MAX_NR_ZONES - 1,
++		.priority = DEF_PRIORITY,
++		.may_writepage = 1,
++		.may_unmap = 1,
++		.may_swap = 1,
++		// .hibernation_mode = 1,
++	};
++	struct zonelist *zonelist = node_zonelist(num_numa_node, sc.gfp_mask);
++	unsigned long nr_reclaimed;
++	unsigned int noreclaim_flag;
++
++	fs_reclaim_acquire(sc.gfp_mask);
++	noreclaim_flag = memalloc_noreclaim_save();
++	set_task_reclaim_state(current, &sc.reclaim_state);
++
++	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
++
++	set_task_reclaim_state(current, NULL);
++	memalloc_noreclaim_restore(noreclaim_flag);
++	fs_reclaim_release(sc.gfp_mask);
++
++	return nr_reclaimed;
++}
++EXPORT_SYMBOL(shrink_pagecache_for_reclaim);
++#endif /* CONFIG_VIRTIO_LLFREE_BALLOON */
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index bb09c03..f01271f 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -12,6 +12,7 @@
+  */
+ #include <linux/fs.h>
+ #include <linux/mm.h>
++#include <llfree_alloc.h>
+ #include <linux/err.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
+@@ -1079,6 +1080,18 @@ static void fill_contig_page_info(struct zone *zone,
+ 	info->free_pages = 0;
+ 	info->free_blocks_total = 0;
+ 	info->free_blocks_suitable = 0;
++#ifdef CONFIG_LLFREE
++	if (zone->llfree) {
++		/* Same conservative availability estimate as the artifact. */
++		info->free_pages = llfree_free_frames(zone->llfree);
++		info->free_blocks_total = info->free_pages;
++		info->free_blocks_suitable = info->free_pages >> suitable_order;
++		if (suitable_order >= HPAGE_PMD_ORDER)
++			info->free_blocks_suitable = llfree_free_huge(zone->llfree) >>
++				(suitable_order - HPAGE_PMD_ORDER);
++	}
++	return;
++#endif
+ 
+ 	for (order = 0; order < NR_PAGE_ORDERS; order++) {
+ 		unsigned long blocks;
+@@ -1560,6 +1573,19 @@ static void frag_show_print(struct seq_file *m, pg_data_t *pgdat,
+ 	int order;
+ 
+ 	seq_printf(m, "Node %d, zone %8s ", pgdat->node_id, zone->name);
++#ifdef CONFIG_LLFREE
++	{
++		unsigned long huge = zone->llfree ? llfree_free_huge(zone->llfree) : 0;
++		unsigned long total = zone->llfree ? llfree_free_frames(zone->llfree) : 0;
++
++		/* Aggregate bins, as in AE; detailed metadata is in /proc/llfree. */
++		for (order = 0; order < NR_PAGE_ORDERS; order++)
++			seq_printf(m, "%6lu ", order == HPAGE_PMD_ORDER ? huge :
++				order == 0 ? total - (huge << HPAGE_PMD_ORDER) : 0UL);
++		seq_putc(m, '\n');
++		return;
++	}
++#endif
+ 	for (order = 0; order < NR_PAGE_ORDERS; ++order)
+ 		/*
+ 		 * Access to nr_free is lockless as nr_free is used only for
+-- 
+2.34.1
+
+
+From 6cff96baebb6e2f9880468e0b5c6b8f12cdd785f Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Sun, 20 Sep 2026 00:53:25 +0800
+Subject: [PATCH 2/2] Account host hard reclaim in global free stats and drain
+ LLFree reservations
+
+---
+ include/linux/vmstat.h | 15 +++++++++++++++
+ mm/page_alloc.c        |  4 ++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/include/linux/vmstat.h b/include/linux/vmstat.h
+index c287998..b5d03ef 100644
+--- a/include/linux/vmstat.h
++++ b/include/linux/vmstat.h
+@@ -176,6 +176,21 @@ static inline void node_page_state_add(long x, struct pglist_data *pgdat,
+ static inline unsigned long global_zone_page_state(enum zone_stat_item item)
+ {
+ 	long x = atomic_long_read(&vm_zone_stat[item]);
++#ifdef CONFIG_LLFREE
++	/*
++	 * HyperAlloc changes per-zone free counters from QEMU during hard
++	 * reclaim/return. Its shared ABI does not publish vm_zone_stat, so
++	 * aggregate those atomically readable counters for this item only.
++	 * Per-CPU differentials retain the normal vmstat batching semantics.
++	 */
++	if (item == NR_FREE_PAGES) {
++		struct zone *zone;
++
++		x = 0;
++		for_each_populated_zone(zone)
++			x += atomic_long_read(&zone->vm_stat[NR_FREE_PAGES]);
++	}
++#endif
+ #ifdef CONFIG_SMP
+ 	if (x < 0)
+ 		x = 0;
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index b618e44..1734821 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2713,6 +2713,10 @@ static void __drain_all_pages(struct zone *zone, bool force_all_cpus)
+ 	 */
+ 	static cpumask_t cpus_with_pcps;
+ 
++	/* LLFree reservations exist even though every PCP count is zero. */
++	if (IS_ENABLED(CONFIG_LLFREE))
++		force_all_cpus = true;
++
+ 	/*
+ 	 * Do not drain if one is already in progress unless it's specific to
+ 	 * a zone. Such callers are primarily CMA and memory hotplug and need
+-- 
+2.34.1
+

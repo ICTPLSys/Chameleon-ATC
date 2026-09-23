@@ -1,0 +1,7 @@
+% KONECT-derived proxy fixture: source destination
+1 10
+1 10
+2 10
+1 11
+9 20
+9 20

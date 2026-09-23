@@ -1,0 +1,238 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.cassandra.transport;
+
+import java.io.IOException;
+
+import net.jpountz.lz4.LZ4Factory;
+
+import org.xerial.snappy.Snappy;
+import org.xerial.snappy.SnappyError;
+
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.utils.JVMStabilityInspector;
+
+import io.netty.buffer.ByteBuf;
+
+public interface Compressor
+{
+    public Envelope compress(Envelope uncompressed) throws IOException;
+    public Envelope decompress(Envelope compressed) throws IOException;
+
+    /**
+     * Validates the uncompressed length declared in the header of a compressed frame before it is used to size a
+     * destination buffer.
+     *
+     * @param uncompressedLength the expected uncompressed length
+     * @throws ProtocolException when the uncompressed is negative, zero, or exceeds {@code native_transport_max_frame_size}
+     */
+    static void validateUncompressedLength(int uncompressedLength)
+    {
+        int maxFrameSize = DatabaseDescriptor.getNativeTransportMaxFrameSize();
+        if (uncompressedLength < 0 || uncompressedLength > maxFrameSize)
+            throw new ProtocolException(String.format("Invalid uncompressed frame length %d; it must be non-negative and " +
+                                                      "no greater than native_transport_max_frame_size (%d bytes)",
+                                                      uncompressedLength, maxFrameSize));
+    }
+
+    /*
+     * TODO: We can probably do more efficient, like by avoiding copy.
+     * Also, we don't reuse ICompressor because the API doesn't expose enough.
+     */
+    public static class SnappyCompressor implements Compressor
+    {
+        public static final SnappyCompressor instance;
+        static
+        {
+            SnappyCompressor i;
+            try
+            {
+                i = new SnappyCompressor();
+            }
+            catch (Exception e)
+            {
+                JVMStabilityInspector.inspectThrowable(e);
+                i = null;
+            }
+            catch (NoClassDefFoundError | SnappyError | UnsatisfiedLinkError e)
+            {
+                i = null;
+            }
+            instance = i;
+        }
+
+        private SnappyCompressor()
+        {
+            // this would throw java.lang.NoClassDefFoundError if Snappy class
+            // wasn't found at runtime which should be processed by the calling method
+            Snappy.getNativeLibraryVersion();
+        }
+
+        public Envelope compress(Envelope uncompressed) throws IOException
+        {
+            byte[] input = CBUtil.readRawBytes(uncompressed.body);
+            ByteBuf output = CBUtil.allocator.heapBuffer(Snappy.maxCompressedLength(input.length));
+
+            try
+            {
+                int written = Snappy.compress(input, 0, input.length, output.array(), output.arrayOffset());
+                output.writerIndex(written);
+            }
+            catch (final Throwable e)
+            {
+                output.release();
+                throw e;
+            }
+            finally
+            {
+                uncompressed.release();
+            }
+
+            return uncompressed.with(output);
+        }
+
+        public Envelope decompress(Envelope compressed) throws IOException
+        {
+            try
+            {
+                byte[] input = CBUtil.readRawBytes(compressed.body);
+
+                if (!Snappy.isValidCompressedBuffer(input, 0, input.length))
+                    throw new ProtocolException("Provided frame does not appear to be Snappy compressed");
+
+                int uncompressedLength = Snappy.uncompressedLength(input);
+                validateUncompressedLength(uncompressedLength);
+                ByteBuf output = CBUtil.allocator.heapBuffer(uncompressedLength);
+
+                try
+                {
+                    int size = Snappy.uncompress(input, 0, input.length, output.array(), output.arrayOffset());
+                    output.writerIndex(size);
+                }
+                catch (final Throwable e)
+                {
+                    output.release();
+                    throw e;
+                }
+
+                return compressed.with(output);
+            }
+            finally
+            {
+                compressed.release();
+            }
+        }
+    }
+
+    /*
+     * This is very close to the ICompressor implementation, and in particular
+     * it also layout the uncompressed size at the beginning of the message to
+     * make uncompression faster, but contrarly to the ICompressor, that length
+     * is written in big-endian. The native protocol is entirely big-endian, so
+     * it feels like putting little-endian here would be a annoying trap for
+     * client writer.
+     */
+    public static class LZ4Compressor implements Compressor
+    {
+        public static final LZ4Compressor instance = new LZ4Compressor();
+
+        private static final int INTEGER_BYTES = 4;
+        private final net.jpountz.lz4.LZ4Compressor compressor;
+        private final net.jpountz.lz4.LZ4Decompressor decompressor;
+
+        private LZ4Compressor()
+        {
+            final LZ4Factory lz4Factory = LZ4Factory.fastestInstance();
+            compressor = lz4Factory.fastCompressor();
+            decompressor = lz4Factory.decompressor();
+        }
+
+        public Envelope compress(Envelope uncompressed)
+        {
+            byte[] input = CBUtil.readRawBytes(uncompressed.body);
+
+            int maxCompressedLength = compressor.maxCompressedLength(input.length);
+            ByteBuf outputBuf = CBUtil.allocator.heapBuffer(INTEGER_BYTES + maxCompressedLength);
+
+            byte[] output = outputBuf.array();
+            int outputOffset = outputBuf.arrayOffset();
+
+            output[outputOffset    ] = (byte) (input.length >>> 24);
+            output[outputOffset + 1] = (byte) (input.length >>> 16);
+            output[outputOffset + 2] = (byte) (input.length >>>  8);
+            output[outputOffset + 3] = (byte) (input.length);
+
+            try
+            {
+                int written = compressor.compress(input, 0, input.length, output, outputOffset + INTEGER_BYTES, maxCompressedLength);
+                outputBuf.writerIndex(INTEGER_BYTES + written);
+
+                return uncompressed.with(outputBuf);
+            }
+            catch (final Throwable e)
+            {
+                outputBuf.release();
+                throw e;
+            }
+            finally
+            {
+                uncompressed.release();
+            }
+        }
+
+        public Envelope decompress(Envelope compressed) throws IOException
+        {
+            try
+            {
+                byte[] input = CBUtil.readRawBytes(compressed.body);
+
+                if (input.length < INTEGER_BYTES)
+                    throw new ProtocolException("Provided frame does not appear to be LZ4 compressed");
+
+                int uncompressedLength = ((input[0] & 0xFF) << 24)
+                                       | ((input[1] & 0xFF) << 16)
+                                       | ((input[2] & 0xFF) <<  8)
+                                       | ((input[3] & 0xFF));
+
+                validateUncompressedLength(uncompressedLength);
+                ByteBuf output = CBUtil.allocator.heapBuffer(uncompressedLength);
+
+                try
+                {
+                    int read = decompressor.decompress(input, INTEGER_BYTES, output.array(), output.arrayOffset(), uncompressedLength);
+                    if (read != input.length - INTEGER_BYTES)
+                        throw new IOException("Compressed lengths mismatch");
+
+                    output.writerIndex(uncompressedLength);
+
+                    return compressed.with(output);
+                }
+                catch (final Throwable e)
+                {
+                    output.release();
+                    throw e;
+                }
+            }
+            finally
+            {
+                //release the old message
+                compressed.release();
+            }
+        }
+    }
+}

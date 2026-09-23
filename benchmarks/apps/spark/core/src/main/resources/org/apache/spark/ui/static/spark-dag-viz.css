@@ -1,0 +1,198 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+:root, [data-bs-theme="light"] {
+  --spark-dag-edge: #444;
+  --spark-dag-cluster-fill: #A0DFFF;
+  --spark-dag-cluster-stroke: #3EC0FF;
+  --spark-dag-skipped-fill: #D6D6D6;
+  --spark-dag-skipped-stroke: #B7B7B7;
+  --spark-dag-stage-stroke-job: #FF99AC;
+  --spark-dag-stage-stroke-stage: #FFA6B6;
+  --spark-dag-stage-skipped-stroke: #ADADAD;
+  --spark-dag-cached-fill-job: #A3F545;
+  --spark-dag-cached-fill-stage: #B3F5C5;
+  --spark-dag-cached-stroke: #52C366;
+  --spark-dag-barrier-fill-job: #B4E9E2;
+  --spark-dag-barrier-fill-stage: #84E9E2;
+  --spark-dag-barrier-stroke: #32DBC6;
+  --spark-dag-indeterminate-fill-job: #f6b187;
+  --spark-dag-indeterminate-fill-stage: #F09c67;
+  --spark-dag-indeterminate-stroke: #D97536;
+  --spark-dag-node-fill: #C3EBFF;
+}
+[data-bs-theme="dark"] {
+  --spark-dag-edge: #adb5bd;
+  --spark-dag-cluster-fill: #1a5276;
+  --spark-dag-cluster-stroke: #5dade2;
+  --spark-dag-skipped-fill: #4a4a4a;
+  --spark-dag-skipped-stroke: #6c6c6c;
+  --spark-dag-stage-stroke-job: #e74c3c;
+  --spark-dag-stage-stroke-stage: #e74c3c;
+  --spark-dag-stage-skipped-stroke: #6c6c6c;
+  --spark-dag-cached-fill-job: #1e7a34;
+  --spark-dag-cached-fill-stage: #1e6e38;
+  --spark-dag-cached-stroke: #27ae60;
+  --spark-dag-barrier-fill-job: #117a65;
+  --spark-dag-barrier-fill-stage: #0e6655;
+  --spark-dag-barrier-stroke: #1abc9c;
+  --spark-dag-indeterminate-fill-job: #935116;
+  --spark-dag-indeterminate-fill-stage: #7d4512;
+  --spark-dag-indeterminate-stroke: #e67e22;
+  --spark-dag-node-fill: #1b4f72;
+}
+
+#dag-viz-graph {
+  overflow-x: auto;
+}
+
+#dag-viz-graph a, #dag-viz-graph a:hover {
+  text-decoration: none;
+}
+
+#dag-viz-graph .label {
+  font-weight: normal;
+  text-shadow: none;
+  color: var(--bs-body-color);
+}
+
+#dag-viz-graph svg path {
+  stroke: var(--spark-dag-edge);
+  stroke-width: 1.5px;
+}
+
+#dag-viz-graph svg g.cluster rect {
+  stroke-width: 1px;
+}
+
+#dag-viz-graph div#empty-dag-viz-message {
+  margin: 15px;
+}
+
+/* Job page specific styles */
+
+#dag-viz-graph svg.job marker#marker-arrow path {
+  fill: var(--bs-body-color);
+  stroke-width: 0px;
+}
+
+#dag-viz-graph svg.job g.cluster rect {
+  fill: var(--spark-dag-cluster-fill);
+  stroke: var(--spark-dag-cluster-stroke);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.job g.cluster.skipped rect {
+  fill: var(--spark-dag-skipped-fill);
+  stroke: var(--spark-dag-skipped-stroke);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.job g.cluster.stage rect {
+  fill: var(--bs-body-bg);
+  stroke: var(--spark-dag-stage-stroke-job);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.job g.cluster.stage.skipped rect {
+  stroke: var(--spark-dag-stage-skipped-stroke);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.job g#cross-stage-edges path {
+  fill: none;
+}
+
+#dag-viz-graph svg.job g.cluster text {
+  fill: var(--bs-body-color);
+}
+
+#dag-viz-graph svg.job g.cluster.skipped text {
+  fill: var(--bs-secondary-color);
+}
+
+#dag-viz-graph svg.job g.node circle {
+  fill: var(--spark-dag-edge);
+}
+
+#dag-viz-graph svg.job g.node.cached circle {
+  fill: var(--spark-dag-cached-fill-job);
+  stroke: var(--spark-dag-cached-stroke);
+  stroke-width: 2px;
+}
+
+#dag-viz-graph svg.job g.cluster.barrier rect {
+  fill: var(--spark-dag-barrier-fill-job);
+  stroke: var(--spark-dag-barrier-stroke);
+  stroke-width: 2px;
+}
+
+#dag-viz-graph svg.job g.node.indeterminate circle {
+  fill: var(--spark-dag-indeterminate-fill-job);
+  stroke: var(--spark-dag-indeterminate-stroke);
+  stroke-width: 2px;
+}
+
+/* Stage page specific styles */
+
+#dag-viz-graph svg.stage g.cluster rect {
+  fill: var(--spark-dag-cluster-fill);
+  stroke: var(--spark-dag-cluster-stroke);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.stage g.cluster.stage rect {
+  fill: var(--bs-body-bg);
+  stroke: var(--spark-dag-stage-stroke-stage);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.stage g.node g.label text tspan {
+  fill: var(--bs-body-color);
+}
+
+#dag-viz-graph svg.stage g.cluster text {
+  fill: var(--bs-body-color);
+}
+
+#dag-viz-graph svg.stage g.node rect {
+  fill: var(--spark-dag-node-fill);
+  stroke: var(--spark-dag-cluster-stroke);
+  stroke-width: 1px;
+}
+
+#dag-viz-graph svg.stage g.node.cached rect {
+  fill: var(--spark-dag-cached-fill-stage);
+  stroke: var(--spark-dag-cached-stroke);
+  stroke-width: 2px;
+}
+
+#dag-viz-graph svg.stage g.cluster.barrier rect {
+  fill: var(--spark-dag-barrier-fill-stage);
+  stroke: var(--spark-dag-barrier-stroke);
+  stroke-width: 2px;
+}
+
+#dag-viz-graph svg.stage g.node.indeterminate rect {
+  fill: var(--spark-dag-indeterminate-fill-stage);
+  stroke: var(--spark-dag-indeterminate-stroke);
+  stroke-width: 2px;
+}
+
+.tooltip-inner {
+  white-space: pre-wrap;
+}

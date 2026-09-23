@@ -1,0 +1,4 @@
+key,op,size,op_count,key_size
+abc,GET,0,2,5
+12345678901234567,SET,4096,1,17
+z,DELETE,8,1,1

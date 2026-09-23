@@ -1,0 +1,285 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.transport;
+
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLHandshakeException;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.exceptions.OverloadedException;
+import org.apache.cassandra.exceptions.OversizedCQLMessageException;
+import org.apache.cassandra.metrics.ClientMetrics;
+import org.apache.cassandra.net.FrameEncoder;
+import org.apache.cassandra.transport.messages.ErrorMessage;
+import org.apache.cassandra.transport.messages.ErrorMessage.WithStreamId;
+import org.apache.cassandra.utils.JVMStabilityInspector;
+import org.apache.cassandra.utils.NoSpamLogger;
+import org.apache.cassandra.utils.Throwables;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.unix.Errors;
+
+public class ExceptionHandlers
+{
+    private static final Logger logger = LoggerFactory.getLogger(ExceptionHandlers.class);
+
+    public static ChannelInboundHandlerAdapter postV5Handler(FrameEncoder.PayloadAllocator allocator,
+                                                             ProtocolVersion version)
+    {
+        return new PostV5ExceptionHandler(allocator, version);
+    }
+
+    private static final class PostV5ExceptionHandler extends ChannelInboundHandlerAdapter
+    {
+        private final FrameEncoder.PayloadAllocator allocator;
+        private final ProtocolVersion version;
+
+        public PostV5ExceptionHandler(FrameEncoder.PayloadAllocator allocator, ProtocolVersion version)
+        {
+            this.allocator = allocator;
+            this.version = version;
+        }
+
+        @Override
+        public void exceptionCaught(final ChannelHandlerContext ctx, Throwable cause)
+        {
+            // Provide error message to client in case channel is still open
+            if (ctx.channel().isOpen())
+            {
+                Predicate<Throwable> handler = getUnexpectedExceptionHandler(ctx.channel(), false);
+                // No request in scope at the channel level; a WrappedException cause carries the frame's
+                // stream id and overrides this fallback.
+                WithStreamId withStreamId = ErrorMessage.fromException(cause, handler);
+                ErrorMessage errorMessage = withStreamId.message;
+                try
+                {
+                    int streamId = withStreamId.streamId;
+                    boolean isFatal = isFatal(cause);
+                    if (streamId == Message.UNSET_STREAM_ID)
+                    {
+                        // No stream id could be recovered, so we have no request to route a response to.
+                        // Close the connection rather than emit an unroutable frame (CASSANDRA-21508).
+                        isFatal = true;
+                        streamId = 0;
+                    }
+
+                    Envelope response = errorMessage.encode(version, streamId);
+                    FrameEncoder.Payload payload = allocator.allocate(true, CQLMessageHandler.envelopeSize(response.header));
+                    try
+                    {
+                        response.encodeInto(payload.buffer);
+                        response.release();
+                        payload.finish();
+                        ChannelPromise promise = ctx.newPromise();
+                        // On a fatal error, close the channel only once the error frame has been written,
+                        // so the client receives the diagnostic before the connection is torn down. Closing
+                        // synchronously here can abort the in-flight flush and drop the frame when the socket
+                        // can't drain it immediately (TCP backpressure, TLS buffering, or a large frame).
+                        // Matches PreV5Handlers.ExceptionHandler and InitialConnectionHandler.
+                        //
+                        // Trade-off of deferring the close (CASSANDRA-21508):
+                        //  - There is a slim chance we send two frames with the same streamId. Responses
+                        //    already queued on this connection will have a chance to flush before the close
+                        //    fires. For the majority of cases, each frame will carry its own unique stream
+                        //    id, so nothing is misrouted. These are valid responses to requests that were
+                        //    correctly-decoded earlier.
+                        if (isFatal)
+                            promise.addListener(future -> ctx.close());
+                        ctx.writeAndFlush(payload, promise);
+                    }
+                    finally
+                    {
+                        payload.release();
+                    }
+                }
+                finally
+                {
+                    JVMStabilityInspector.inspectThrowable(cause);
+                }
+            }
+            
+            if (DatabaseDescriptor.getClientErrorReportingExclusions().contains(ctx.channel().remoteAddress()))
+            {
+                // Sometimes it is desirable to ignore exceptions from specific IPs; such as when security scans are
+                // running.  To avoid polluting logs and metrics, metrics are not updated when the IP is in the exclude
+                // list.
+                logger.debug("Excluding client exception for {}; address contained in client_error_reporting_exclusions", ctx.channel().remoteAddress(), cause);
+                return;
+            }
+            logClientNetworkingExceptions(cause, ctx.channel().remoteAddress());
+        }
+
+        private static boolean isFatal(Throwable cause)
+        {
+            return Throwables.anyCauseMatches(cause, t -> t instanceof ProtocolException
+                                                          && ((ProtocolException)t).isFatal());
+        }
+    }
+
+    static void logClientNetworkingExceptions(Throwable cause, SocketAddress clientAddress)
+    {
+        if (Throwables.anyCauseMatches(cause, t -> t instanceof ProtocolException))
+        {
+            // if any ProtocolExceptions is not silent, then handle
+            if (Throwables.anyCauseMatches(cause, t -> t instanceof ProtocolException && !((ProtocolException) t).isSilent()))
+            {
+                ClientMetrics.instance.markProtocolException();
+                // since protocol exceptions are expected to be client issues, not logging stack trace
+                // to avoid spamming the logs once a bad client shows up
+                NoSpamLogger.log(logger, NoSpamLogger.Level.WARN, 1, TimeUnit.MINUTES, "Protocol exception with client networking: " + cause.getMessage());
+            }
+        }
+        else if (Throwables.anyCauseMatches(cause, t -> t instanceof OverloadedException))
+        {
+            // Once the threshold for overload is breached, it will very likely spam the logs...
+            NoSpamLogger.log(logger, NoSpamLogger.Level.INFO, 1, TimeUnit.MINUTES, cause.getMessage());
+        }
+        else if (Throwables.anyCauseMatches(cause, t -> t instanceof OversizedCQLMessageException))
+        {
+            NoSpamLogger.log(logger, NoSpamLogger.Level.INFO, 1, TimeUnit.MINUTES, cause.getMessage());
+        }
+        else if (Throwables.anyCauseMatches(cause, t -> t instanceof Errors.NativeIoException))
+        {
+            ClientMetrics.instance.markUnknownException();
+            logger.trace("Native exception in client networking", cause);
+        }
+        else if (Throwables.anyCauseMatches(cause, t -> t instanceof SSLHandshakeException))
+        {
+            ClientMetrics.instance.markSSLHandshakeException();
+            NoSpamLogger.log(logger, NoSpamLogger.Level.WARN, 1, TimeUnit.MINUTES, "SSLHandshakeException in client networking with peer {} {}", clientAddress, cause.getMessage());
+        }
+        else if (Throwables.anyCauseMatches(cause, t -> t instanceof SSLException))
+        {
+            NoSpamLogger.log(logger, NoSpamLogger.Level.WARN, 1, TimeUnit.MINUTES, "SSLException in client networking with peer {} {}", clientAddress, cause.getMessage());
+        }
+        else
+        {
+            ClientMetrics.instance.markUnknownException();
+            logger.warn("Unknown exception in client networking with peer {} {}", clientAddress, cause.getMessage());
+        }
+    }
+
+    static Predicate<Throwable> getUnexpectedExceptionHandler(Channel channel, boolean alwaysLogAtError)
+    {
+        SocketAddress address = channel.remoteAddress();
+        if (DatabaseDescriptor.getClientErrorReportingExclusions().contains(address))
+        {
+            return cause -> {
+                logger.debug("Excluding client exception for {}; address contained in client_error_reporting_exclusions", address, cause);
+                return true;
+            };
+        }
+        return new UnexpectedChannelExceptionHandler(channel, alwaysLogAtError);
+    }
+
+    /**
+     * Include the channel info in the logged information for unexpected errors, and (if {@link #alwaysLogAtError} is
+     * false then choose the log level based on the type of exception (some are clearly client issues and shouldn't be
+     * logged at server ERROR level)
+     */
+    static final class UnexpectedChannelExceptionHandler implements Predicate<Throwable>
+    {
+
+        /**
+         * When we encounter an unexpected IOException we look for these {@link Throwable#getMessage() messages}
+         * (because we have no better way to distinguish) and log them at DEBUG rather than INFO, since they
+         * are generally caused by unclean client disconnects rather than an actual problem.
+         */
+        private static final Set<String> ioExceptionsAtDebugLevel = ImmutableSet.<String>builder().
+            add("Connection reset by peer").
+            add("Broken pipe").
+            add("Connection timed out").
+            build();
+
+        private final Channel channel;
+        private final boolean alwaysLogAtError;
+
+        UnexpectedChannelExceptionHandler(Channel channel, boolean alwaysLogAtError)
+        {
+            this.channel = channel;
+            this.alwaysLogAtError = alwaysLogAtError;
+        }
+
+        @Override
+        public boolean apply(Throwable exception)
+        {
+            String message;
+            try
+            {
+                message = "Unexpected exception during request; channel = " + channel;
+            }
+            catch (Exception ignore)
+            {
+                // We don't want to make things worse if String.valueOf() throws an exception
+                message = "Unexpected exception during request; channel = <unprintable>";
+            }
+
+            // netty wraps SSL errors in a CodecExcpetion
+            if (!alwaysLogAtError && (exception instanceof IOException || (exception.getCause() instanceof IOException)))
+            {
+                String errorMessage = exception.getMessage();
+                boolean logAtTrace = false;
+
+                for (String ioException : ioExceptionsAtDebugLevel)
+                {
+                    // exceptions thrown from the netty epoll transport add the name of the function that failed
+                    // to the exception string (which is simply wrapping a JDK exception), so we can't do a simple/naive comparison
+                    if (errorMessage.contains(ioException))
+                    {
+                        logAtTrace = true;
+                        break;
+                    }
+                }
+
+                if (logAtTrace)
+                {
+                    // Likely unclean client disconnects
+                    logger.trace(message, exception);
+                }
+                else
+                {
+                    // Generally unhandled IO exceptions are network issues, not actual ERRORS
+                    logger.info(message, exception);
+                }
+            }
+            else
+            {
+                // Anything else is probably a bug in server of client binary protocol handling
+                logger.error(message, exception);
+            }
+
+            // We handled the exception.
+            return true;
+        }
+    }
+}

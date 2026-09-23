@@ -1,0 +1,9 @@
+NAME
+        nodetool history - Print previously executed nodetool commands
+
+SYNOPSIS
+        nodetool history [(-n <commands> | --number-of-commands <commands>)]
+
+OPTIONS
+        -n <commands>, --num <commands>, --number-of-commands <commands>
+            Number of commands to print, defaults to 1000.

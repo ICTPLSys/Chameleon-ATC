@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "description": "User-approved fixed VM sizes for existing scaled inputs; do not re-profile unless explicitly requested.",
+  "source": "benchmarks/results/chameleon/sized-apps-v4",
+  "applications": {
+    "liblinear": {
+      "case": "liblinear",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 122269696,
+      "headroom_mib": 2048,
+      "memory_mib": 2166,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-liblinear-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 32165888
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-liblinear-local/liblinear/application/20260921T122742Z/predict-time.txt",
+          "bytes": 6307840
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-liblinear-local/liblinear/application/20260921T122742Z/train-time.txt",
+          "bytes": 122269696
+        }
+      ]
+    },
+    "xsbench": {
+      "case": "xsbench",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 5924937728,
+      "headroom_mib": 2048,
+      "memory_mib": 7700,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-xsbench-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 5924937728
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-xsbench-local/xsbench/application/20260921T122856Z/time.txt",
+          "bytes": 5924675584
+        }
+      ]
+    },
+    "graph500": {
+      "case": "graph500",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 2218381312,
+      "headroom_mib": 2048,
+      "memory_mib": 4164,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-graph500-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 2218381312
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-graph500-local/graph500/application/20260921T123059Z/time.txt",
+          "bytes": 2218381312
+        }
+      ]
+    },
+    "graphchi": {
+      "case": "graphchi",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 3245936640,
+      "headroom_mib": 2048,
+      "memory_mib": 5144,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-graphchi-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 3245936640
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-graphchi-local/graphchi/application/20260921T123544Z/time.txt",
+          "bytes": 3245654016
+        }
+      ]
+    },
+    "spark-kmeans": {
+      "case": "spark-kmeans",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 6025416704,
+      "headroom_mib": 2048,
+      "memory_mib": 7796,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-spark-kmeans-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 6025416704
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-spark-kmeans-local/spark-kmeans/application/20260921T123856Z/time.txt",
+          "bytes": 6025416704
+        }
+      ]
+    },
+    "pvc": {
+      "case": "pvc",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 11071492096,
+      "headroom_mib": 2048,
+      "memory_mib": 12608,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-pvc-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 11071492096
+        },
+        {
+          "kind": "Guest GNU time max RSS",
+          "file": "benchmarks/results/chameleon/sized-apps-v4-pvc-local/pvc/application/20260921T124103Z/repeat-001/time.txt",
+          "bytes": 11071492096
+        }
+      ]
+    },
+    "cassandra": {
+      "case": "cassandra",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 9507065856,
+      "headroom_mib": 2048,
+      "memory_mib": 11116,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-cassandra-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 9507065856
+        }
+      ]
+    },
+    "memcached": {
+      "case": "memcached",
+      "method": "max(all-local process VmHWM, Guest GNU time max RSS) + 2048 MiB; rounded up to 2 MiB",
+      "peak_application_bytes": 437702656,
+      "headroom_mib": 2048,
+      "memory_mib": 2466,
+      "baseline_report": "benchmarks/results/chameleon/sized-apps-v4-memcached-local/report.json",
+      "baseline_status": "PASS",
+      "scope": "Observed workload peak, not configured cache/heap limit. Failed load validity makes sizing provisional.",
+      "sources": [
+        {
+          "kind": "sampled process VmHWM",
+          "bytes": 437702656
+        }
+      ]
+    }
+  }
+}

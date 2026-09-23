@@ -1,0 +1,7 @@
+OpenJDK 64-Bit Server VM 17.0.20+8-LTS on Linux 6.17.0-1020-azure
+AMD EPYC 9V74 80-Core Processor
+internal row comparable wrapper:          Best Time(ms)   Avg Time(ms)   Stdev(ms)    Rate(M/s)   Per Row(ns)   Relative
+------------------------------------------------------------------------------------------------------------------------
+toSet                                                21             22           0          9.4         106.0       1.0X
+mergePartitions                                      33             38          14          6.0         166.0       0.6X
+

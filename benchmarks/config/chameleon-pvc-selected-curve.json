@@ -1,0 +1,656 @@
+{
+  "schema_version": 1,
+  "selected_utc": "2026-09-23T05:49:13.090641+00:00",
+  "application": "pvc",
+  "status": "SELECTED_BY_USER_SINGLE_HIGH_OBSERVATION",
+  "selection_reason": "User requests stop verification to save time and select d06 high18.623195% slowdown with unchanged d01 low/d05 middle; continue Cassandra. High has one completed observation; low/middle retain their prior two observations.",
+  "vm_memory_mib": 32768,
+  "remote_pool_mib": 8192,
+  "workload_configuration": {
+    "target_peak_gib": 16,
+    "vcpus": 4,
+    "status": "measured-pass",
+    "args": [
+      "--skip-build",
+      "--input",
+      "{inputs}/pvc-1600m.bin",
+      "--threads",
+      "4",
+      "--repetitions",
+      "1"
+    ],
+    "prepare": {
+      "kind": "pvc",
+      "bytes": "1600MiB",
+      "output": "pvc-1600m.bin",
+      "note": "Synthetic PVC records; not Wikipedia English trace"
+    },
+    "measurement": {
+      "case": "pvc",
+      "run": "benchmarks/results/chameleon/table2-apps-v1-pvc-local",
+      "target_peak_gib": 16,
+      "tolerance_percent": 10,
+      "status": "PASS",
+      "observed_peak_gib": 15.944686889648438,
+      "error_percent": -0.3457069396972656,
+      "within_target": true,
+      "memory_mib": 18376,
+      "application_check": {
+        "status": "EXIT_ONLY",
+        "scope": "New input: deterministic counts retained; baseline not yet recorded"
+      }
+    },
+    "reference_counts": {
+      "stage1_unique": 62914560,
+      "stage2_urls": 1000000,
+      "total_views": 62914560,
+      "checksum": 11119465522845651179
+    }
+  },
+  "cpu_affinity_profile": {
+    "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+    "host_numa_node": 0,
+    "vcpu_host_cpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "qemu_service_cpus": [
+      4,
+      5
+    ],
+    "guest_application_cpus": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "all_local": {
+    "trial_id": "b32768-pin2",
+    "report": "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-pvc-local/report.json",
+    "performance": {
+      "runtime_seconds": 112.87,
+      "cost": 112.87,
+      "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+      "time_files": [
+        "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-pvc-local/pvc/application/20260922T204004Z/repeat-001/time.txt"
+      ]
+    },
+    "tracking_profile": {
+      "sampling": 65536,
+      "cooling": 131072,
+      "hhh_interval_ms": 15000
+    },
+    "normalized_point": {
+      "reclaim_percent": 0,
+      "slowdown_percent": 0
+    },
+    "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases pvc --vm-memory-mib 32768 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+  },
+  "points": [
+    {
+      "role": "low",
+      "trial_id": "d01",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 30476.0,
+        "psi_ppm": 1000,
+        "epoch_us": 200000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurements": [
+        {
+          "trial_id": "d01",
+          "report": "benchmarks/results/chameleon/f78freq-pvc-d01-pvc-on/report.json",
+          "status": "PASS",
+          "performance": {
+            "runtime_seconds": 113.49000000000001,
+            "cost": 113.49000000000001,
+            "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+            "time_files": [
+              "benchmarks/results/chameleon/f78freq-pvc-d01-pvc-on/pvc/application/20260922T204359Z/repeat-001/time.txt"
+            ]
+          },
+          "reclaim_percent": 6.817497866494316,
+          "slowdown_percent": 0.5493045096128357,
+          "reference_status": "PASS",
+          "checks": {
+            "application_exit_zero": true,
+            "guest_application_affinity": true,
+            "resources_empty": true,
+            "no_transport_or_data_error": true
+          },
+          "application_check": {
+            "status": "PASS",
+            "scope": "Matches recorded counts for this profile; repeatability reference",
+            "values": {
+              "stage1_unique": [
+                62914560
+              ],
+              "stage2_urls": [
+                1000000
+              ],
+              "total_views": [
+                62914560
+              ],
+              "checksum": [
+                11119465522845651179
+              ]
+            }
+          },
+          "counters": {
+            "rdma": {
+              "write_bytes": 0,
+              "read_bytes": 0,
+              "write_completions": 0,
+              "read_completions": 0,
+              "transfer_errors": 0,
+              "map_failures": 0
+            },
+            "shadow": {
+              "demand_fault_successes": 0,
+              "demand_fault_failures": 0,
+              "data_save_failure": 0,
+              "data_load_failure": 0
+            },
+            "policy": {
+              "epochs": 617,
+              "low_epochs": 617,
+              "high_epochs": 0,
+              "psi_some_ns": 0,
+              "psi_full_ns": 0,
+              "action_errors": 0
+            }
+          },
+          "cpu_affinity_profile": {
+            "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+            "host_numa_node": 0,
+            "vcpu_host_cpus": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "qemu_service_cpus": [
+              4,
+              5
+            ],
+            "guest_application_cpus": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-pvc-local/report.json"
+        },
+        {
+          "trial_id": "v1r2-d01",
+          "report": "benchmarks/results/chameleon/f78freq-pvc-v1r2-d01-pvc-on/report.json",
+          "status": "PASS",
+          "performance": {
+            "runtime_seconds": 114.15,
+            "cost": 114.15,
+            "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+            "time_files": [
+              "benchmarks/results/chameleon/f78freq-pvc-v1r2-d01-pvc-on/pvc/application/20260922T210754Z/repeat-001/time.txt"
+            ]
+          },
+          "reclaim_percent": 6.815047718229749,
+          "slowdown_percent": 1.1340480198458458,
+          "reference_status": "PASS",
+          "checks": {
+            "application_exit_zero": true,
+            "guest_application_affinity": true,
+            "resources_empty": true,
+            "no_transport_or_data_error": true
+          },
+          "application_check": {
+            "status": "PASS",
+            "scope": "Matches recorded counts for this profile; repeatability reference",
+            "values": {
+              "stage1_unique": [
+                62914560
+              ],
+              "stage2_urls": [
+                1000000
+              ],
+              "total_views": [
+                62914560
+              ],
+              "checksum": [
+                11119465522845651179
+              ]
+            }
+          },
+          "counters": {
+            "rdma": {
+              "write_bytes": 0,
+              "read_bytes": 0,
+              "write_completions": 0,
+              "read_completions": 0,
+              "transfer_errors": 0,
+              "map_failures": 0
+            },
+            "shadow": {
+              "demand_fault_successes": 0,
+              "demand_fault_failures": 0,
+              "data_save_failure": 0,
+              "data_load_failure": 0
+            },
+            "policy": {
+              "epochs": 618,
+              "low_epochs": 618,
+              "high_epochs": 0,
+              "psi_some_ns": 0,
+              "psi_full_ns": 0,
+              "action_errors": 0
+            }
+          },
+          "cpu_affinity_profile": {
+            "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+            "host_numa_node": 0,
+            "vcpu_host_cpus": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "qemu_service_cpus": [
+              4,
+              5
+            ],
+            "guest_application_cpus": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-pvc-v1r2-b-pvc-local/report.json"
+        }
+      ],
+      "completed_observations": 2,
+      "mean": {
+        "reclaim_percent": 6.8162727923620325,
+        "slowdown_percent": 0.8416762647293408
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases pvc --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 487 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 200000 --cold-folios 1 --minimum-local-mib 30476"
+    },
+    {
+      "role": "middle",
+      "trial_id": "d05",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 26806.0,
+        "psi_ppm": 1000,
+        "epoch_us": 50000,
+        "cold_folios": 1,
+        "sample_period": 8192,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 10000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurements": [
+        {
+          "trial_id": "d05",
+          "report": "benchmarks/results/chameleon/f78freq-pvc-d05-pvc-on/report.json",
+          "status": "PASS",
+          "performance": {
+            "runtime_seconds": 113.68,
+            "cost": 113.68,
+            "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+            "time_files": [
+              "benchmarks/results/chameleon/f78freq-pvc-d05-pvc-on/pvc/application/20260922T213915Z/repeat-001/time.txt"
+            ]
+          },
+          "reclaim_percent": 18.017194761294075,
+          "slowdown_percent": 0.7176397625586972,
+          "reference_status": "PASS",
+          "checks": {
+            "application_exit_zero": true,
+            "guest_application_affinity": true,
+            "resources_empty": true,
+            "no_transport_or_data_error": true
+          },
+          "application_check": {
+            "status": "PASS",
+            "scope": "Matches recorded counts for this profile; repeatability reference",
+            "values": {
+              "stage1_unique": [
+                62914560
+              ],
+              "stage2_urls": [
+                1000000
+              ],
+              "total_views": [
+                62914560
+              ],
+              "checksum": [
+                11119465522845651179
+              ]
+            }
+          },
+          "counters": {
+            "rdma": {
+              "write_bytes": 0,
+              "read_bytes": 0,
+              "write_completions": 0,
+              "read_completions": 0,
+              "transfer_errors": 0,
+              "map_failures": 0
+            },
+            "shadow": {
+              "demand_fault_successes": 0,
+              "demand_fault_failures": 0,
+              "data_save_failure": 0,
+              "data_load_failure": 0
+            },
+            "policy": {
+              "epochs": 2477,
+              "low_epochs": 2477,
+              "high_epochs": 0,
+              "psi_some_ns": 0,
+              "psi_full_ns": 0,
+              "action_errors": 0
+            }
+          },
+          "cpu_affinity_profile": {
+            "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+            "host_numa_node": 0,
+            "vcpu_host_cpus": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "qemu_service_cpus": [
+              4,
+              5
+            ],
+            "guest_application_cpus": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-s8192-c131072-h10000-pvc-local/report.json"
+        },
+        {
+          "trial_id": "v3r2-d05",
+          "report": "benchmarks/results/chameleon/f78freq-pvc-v3r2-d05-pvc-on/report.json",
+          "status": "PASS",
+          "performance": {
+            "runtime_seconds": 113.89,
+            "cost": 113.89,
+            "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+            "time_files": [
+              "benchmarks/results/chameleon/f78freq-pvc-v3r2-d05-pvc-on/pvc/application/20260922T214407Z/repeat-001/time.txt"
+            ]
+          },
+          "reclaim_percent": 18.01622727206934,
+          "slowdown_percent": 0.9036945158146459,
+          "reference_status": "PASS",
+          "checks": {
+            "application_exit_zero": true,
+            "guest_application_affinity": true,
+            "resources_empty": true,
+            "no_transport_or_data_error": true
+          },
+          "application_check": {
+            "status": "PASS",
+            "scope": "Matches recorded counts for this profile; repeatability reference",
+            "values": {
+              "stage1_unique": [
+                62914560
+              ],
+              "stage2_urls": [
+                1000000
+              ],
+              "total_views": [
+                62914560
+              ],
+              "checksum": [
+                11119465522845651179
+              ]
+            }
+          },
+          "counters": {
+            "rdma": {
+              "write_bytes": 0,
+              "read_bytes": 0,
+              "write_completions": 0,
+              "read_completions": 0,
+              "transfer_errors": 0,
+              "map_failures": 0
+            },
+            "shadow": {
+              "demand_fault_successes": 0,
+              "demand_fault_failures": 0,
+              "data_save_failure": 0,
+              "data_load_failure": 0
+            },
+            "policy": {
+              "epochs": 2479,
+              "low_epochs": 2479,
+              "high_epochs": 0,
+              "psi_some_ns": 0,
+              "psi_full_ns": 0,
+              "action_errors": 0
+            }
+          },
+          "cpu_affinity_profile": {
+            "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+            "host_numa_node": 0,
+            "vcpu_host_cpus": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "qemu_service_cpus": [
+              4,
+              5
+            ],
+            "guest_application_cpus": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-s8192-c131072-h10000-pvc-local/report.json"
+        }
+      ],
+      "completed_observations": 2,
+      "mean": {
+        "reclaim_percent": 18.016711016681707,
+        "slowdown_percent": 0.8106671391866715
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases pvc --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 487 --cpu-pinning --all-local-tracking --sample-period 8192 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 50000 --cold-folios 1 --minimum-local-mib 26806"
+    },
+    {
+      "role": "high",
+      "trial_id": "d06",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 24052.0,
+        "psi_ppm": 3000,
+        "epoch_us": 20000,
+        "cold_folios": 2,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurements": [
+        {
+          "trial_id": "d06",
+          "report": "benchmarks/results/chameleon/f78freq-pvc-d06-pvc-on/report.json",
+          "status": "PASS",
+          "performance": {
+            "runtime_seconds": 133.89,
+            "cost": 133.89,
+            "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+            "time_files": [
+              "benchmarks/results/chameleon/f78freq-pvc-d06-pvc-on/pvc/application/20260923T054350Z/repeat-001/time.txt"
+            ]
+          },
+          "reclaim_percent": 26.422485420780795,
+          "slowdown_percent": 18.623194825905887,
+          "reference_status": "PASS",
+          "checks": {
+            "application_exit_zero": true,
+            "guest_application_affinity": true,
+            "resources_empty": true,
+            "no_transport_or_data_error": true
+          },
+          "application_check": {
+            "status": "PASS",
+            "scope": "Matches recorded counts for this profile; repeatability reference",
+            "values": {
+              "stage1_unique": [
+                62914560
+              ],
+              "stage2_urls": [
+                1000000
+              ],
+              "total_views": [
+                62914560
+              ],
+              "checksum": [
+                11119465522845651179
+              ]
+            }
+          },
+          "counters": {
+            "rdma": {
+              "write_bytes": 0,
+              "read_bytes": 0,
+              "write_completions": 0,
+              "read_completions": 0,
+              "transfer_errors": 0,
+              "map_failures": 0
+            },
+            "shadow": {
+              "demand_fault_successes": 0,
+              "demand_fault_failures": 0,
+              "data_save_failure": 0,
+              "data_load_failure": 0
+            },
+            "policy": {
+              "epochs": 7184,
+              "low_epochs": 7184,
+              "high_epochs": 0,
+              "psi_some_ns": 0,
+              "psi_full_ns": 0,
+              "action_errors": 0
+            }
+          },
+          "cpu_affinity_profile": {
+            "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+            "host_numa_node": 0,
+            "vcpu_host_cpus": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "qemu_service_cpus": [
+              4,
+              5
+            ],
+            "guest_application_cpus": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-pvc-b32768-pin2-s512-c131072-h1-pvc-local/report.json"
+        }
+      ],
+      "completed_observations": 1,
+      "mean": {
+        "reclaim_percent": 26.422485420780795,
+        "slowdown_percent": 18.623194825905887
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases pvc --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 487 --cpu-pinning --all-local-tracking --sample-period 512 --cooling-samples 131072 --hhh-interval-ms 1 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 3000 --epoch-us 20000 --cold-folios 2 --minimum-local-mib 24052"
+    }
+  ],
+  "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json",
+  "previous_accepted_configuration": "benchmarks/config/chameleon-pvc-before-high-retune.json"
+}

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config LLFREE
+	bool "HyperAlloc LLFree page allocator"
+	depends on X86_64 && SPARSEMEM && SLUB
+	depends on !CMA && !MEMORY_HOTPLUG && !MEMORY_HOTREMOVE
+	depends on !DEFERRED_STRUCT_PAGE_INIT && !ZONE_DEVICE
+	help
+	  HyperAlloc shared-metadata allocator, ported from its artifact release.
+	  Uses 4 KiB pages, all allocation orders through 4 MiB, and 2 MiB
+	  host reclaim granularity. Memory hotplug, CMA and device memory are
+	  not supported by this port.

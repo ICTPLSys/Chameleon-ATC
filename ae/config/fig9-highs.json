@@ -1,0 +1,672 @@
+{
+  "schema": "chameleon-ae-frozen-high-v1",
+  "applications": {
+    "memcached": {
+      "application": "memcached",
+      "selection": "accepted",
+      "selection_status": "ACCEPTED",
+      "candidate_id": "d09",
+      "vm_memory_mib": 73728,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 73728,
+        "minimum_local_mib": 51316.0,
+        "psi_ppm": 1000,
+        "epoch_us": 400000,
+        "cold_folios": 1,
+        "sample_period": 16384,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 5000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "qemu_service_cpus": [
+          12,
+          13
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 12,
+        "args": [
+          "--memory-mib",
+          "32768",
+          "--server-threads",
+          "12",
+          "--runtime",
+          "120",
+          "--rampup",
+          "2",
+          "--mpps",
+          "0.01",
+          "--warmup-keys",
+          "{inputs}/cachelib-8m.keys"
+        ],
+        "prepare": {
+          "kind": "cachelib-keys",
+          "source": "benchmarks/dataset/cachelib-kvcache-202206",
+          "records": 8000000,
+          "output": "cachelib-8m.keys"
+        }
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#memcached",
+        "performance": {
+          "runtime_seconds": null,
+          "cost": 100.1001001001001,
+          "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+          "throughput_ops": 9990.0,
+          "mean_latency_us": 195.004476,
+          "p95_us": 335.359,
+          "p99_us": 1278.975,
+          "load_valid": "1",
+          "schedule_complete": "1"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 2,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#memcached"
+      }
+    },
+    "liblinear": {
+      "application": "liblinear",
+      "selection": "accepted",
+      "selection_status": "ACCEPTED",
+      "candidate_id": "d04",
+      "vm_memory_mib": 65536,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 65536,
+        "minimum_local_mib": 35652.0,
+        "psi_ppm": 3000,
+        "epoch_us": 20000,
+        "cold_folios": 2,
+        "sample_period": 16384,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 5000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "qemu_service_cpus": [
+          4,
+          5
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--dataset",
+          "{inputs}/kdd12-prefix-68m",
+          "--threads",
+          "4"
+        ],
+        "prepare": {
+          "kind": "xz-prefix",
+          "source": "benchmarks/dataset/kdd12/kdd12.xz",
+          "records": 68000000,
+          "output": "kdd12-prefix-68m"
+        }
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#liblinear",
+        "performance": {
+          "runtime_seconds": 683.4200000000001,
+          "cost": 683.4200000000001,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 2,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#liblinear"
+      }
+    },
+    "pvc": {
+      "application": "pvc",
+      "selection": "user_selected",
+      "selection_status": "SELECTED_BY_USER_SINGLE_HIGH_OBSERVATION",
+      "candidate_id": "d06",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "minimum_local_mib": 24052.0,
+        "psi_ppm": 3000,
+        "epoch_us": 20000,
+        "cold_folios": 2,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "qemu_service_cpus": [
+          4,
+          5
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 16,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--input",
+          "{inputs}/pvc-1600m.bin",
+          "--threads",
+          "4",
+          "--repetitions",
+          "1"
+        ],
+        "prepare": {
+          "kind": "pvc",
+          "bytes": "1600MiB",
+          "output": "pvc-1600m.bin",
+          "note": "Synthetic PVC records; not Wikipedia English trace"
+        }
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#pvc",
+        "performance": {
+          "runtime_seconds": 112.87,
+          "cost": 112.87,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 1,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#pvc"
+      }
+    },
+    "graphchi": {
+      "application": "graphchi",
+      "selection": "user_selected",
+      "selection_status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "candidate_id": "d08",
+      "vm_memory_mib": 49152,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 49152,
+        "minimum_local_mib": 26624.0,
+        "psi_ppm": 1000,
+        "epoch_us": 1000,
+        "cold_folios": 2,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "qemu_service_cpus": [
+          4,
+          5
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 23,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--input",
+          "{inputs}/twitter-prefix-1050m.edgelist",
+          "--iterations",
+          "20",
+          "--threads",
+          "4",
+          "--membudget-mib",
+          "28000",
+          "--nshards",
+          "2"
+        ],
+        "prepare": {
+          "kind": "gzip-prefix",
+          "source": "benchmarks/dataset/twitter-2010/twitter-2010.txt.gz",
+          "records": 1050000000,
+          "output": "twitter-prefix-1050m.edgelist"
+        }
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#graphchi",
+        "performance": {
+          "runtime_seconds": 971.26,
+          "cost": 971.26,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 1,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#graphchi"
+      }
+    },
+    "graph500": {
+      "application": "graph500",
+      "selection": "user_selected",
+      "selection_status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "candidate_id": "d11",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "minimum_local_mib": 21804.0,
+        "psi_ppm": 100000,
+        "epoch_us": 20000,
+        "cold_folios": 64,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "qemu_service_cpus": [
+          8,
+          9
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 20,
+        "vcpus": 8,
+        "args": [
+          "--skip-build",
+          "--scale",
+          "25",
+          "--edgefactor",
+          "18",
+          "--threads",
+          "8",
+          "--bfs-iterations",
+          "32",
+          "--graph-cache",
+          "{inputs}/graph500/csr-s25-e18-n32-seed3737844653-v1.bin",
+          "--require-cache"
+        ]
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#graph500",
+        "performance": {
+          "runtime_seconds": 171.92000000000002,
+          "cost": 171.92000000000002,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 1,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#graph500"
+      }
+    },
+    "xsbench": {
+      "application": "xsbench",
+      "selection": "accepted",
+      "selection_status": "ACCEPTED",
+      "candidate_id": "d05",
+      "vm_memory_mib": 81920,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 81920,
+        "minimum_local_mib": 61686.0,
+        "psi_ppm": 3000,
+        "epoch_us": 10000,
+        "cold_folios": 2,
+        "sample_period": 16384,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 2048,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": null,
+      "workload_configuration": {
+        "target_peak_gib": 50,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--gridpoints",
+          "102400",
+          "--lookups",
+          "17000000",
+          "--threads",
+          "4",
+          "--expected-checksum",
+          "969477"
+        ]
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#xsbench",
+        "performance": {
+          "runtime_seconds": 70.27,
+          "cost": 70.27,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 2,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#xsbench"
+      }
+    },
+    "spark-kmeans": {
+      "application": "spark-kmeans",
+      "selection": "accepted",
+      "selection_status": "ACCEPTED",
+      "candidate_id": "d01",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "minimum_local_mib": 21300.0,
+        "psi_ppm": 1000,
+        "epoch_us": 10000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 2048,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": null,
+      "workload_configuration": {
+        "target_peak_gib": 15,
+        "vcpus": 8,
+        "args": [
+          "--input",
+          "{inputs}/km-prefix-30m.dat",
+          "--threads",
+          "8",
+          "--partitions",
+          "16",
+          "--driver-memory-mib",
+          "16384"
+        ],
+        "prepare": {
+          "kind": "prefix",
+          "source": "benchmarks/dataset/spark/km.dat",
+          "records": 30000000,
+          "output": "km-prefix-30m.dat"
+        }
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#spark-kmeans",
+        "performance": {
+          "runtime_seconds": 30.68,
+          "cost": 30.68,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "spark_initialization_seconds": 16.778,
+          "spark_iterations_seconds": 6.6,
+          "spark_within_set_sse": 3.023192774323582e+18
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 2,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#spark-kmeans"
+      }
+    },
+    "cassandra": {
+      "application": "cassandra",
+      "selection": "user_selected",
+      "selection_status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "candidate_id": "d12",
+      "vm_memory_mib": 90112,
+      "remote_pool_mib": 8192,
+      "configuration": {
+        "vm_memory_mib": 90112,
+        "minimum_local_mib": 66144.0,
+        "psi_ppm": 1000,
+        "epoch_us": 100000,
+        "cold_folios": 1,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "qemu_service_cpus": [
+          12,
+          13
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "workload_configuration": {
+        "target_peak_gib": 48,
+        "vcpus": 12,
+        "args": [
+          "--records",
+          "4000000",
+          "--operations",
+          "1000000",
+          "--threads",
+          "16",
+          "--connections",
+          "8",
+          "--load-target",
+          "10000"
+        ],
+        "service_args": [
+          "--heap-mib",
+          "45056"
+        ]
+      },
+      "all_local": {
+        "report": "ae/results_baselines/isolated-all-local.json#cassandra",
+        "performance": {
+          "runtime_seconds": 43.106,
+          "cost": 43.106,
+          "cost_metric": "YCSB fixed-count read-phase runtime",
+          "throughput_ops": 23198.626641302835,
+          "mean_latency_us": 640.632432,
+          "p95_us": 962.0,
+          "p99_us": 1247.0
+        },
+        "tracking_profile": {
+          "sampling": 65536,
+          "cooling": 131072,
+          "hhh_interval_ms": 15000
+        },
+        "normalization_protocol": "fixed-saved-tracked-all-local-v1"
+      },
+      "original_observation_count": 1,
+      "original_measurement_scope": "single-VM parameter-search evidence, not co-run observations",
+      "provenance": {
+        "configuration": "ae/config/fig9-highs.json",
+        "single_vm_selection": "Saved high point selected during author parameter search",
+        "all_local_report": "ae/results_baselines/isolated-all-local.json#cassandra"
+      }
+    }
+  }
+}

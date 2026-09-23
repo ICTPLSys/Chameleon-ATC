@@ -1,0 +1,523 @@
+{
+  "name": "table2-peak-v1",
+  "source": "atc26-chameleon.pdf Table 2",
+  "target_definition": "User-requested application peak RSS target using Table 2 Mem values (the paper column itself describes VM allocation)",
+  "tolerance_percent": 10,
+  "vm_headroom_mib": 2048,
+  "applications": {
+    "xsbench": {
+      "target_peak_gib": 50,
+      "vcpus": 4,
+      "status": "measured-pass",
+      "args": [
+        "--skip-build",
+        "--gridpoints",
+        "102400",
+        "--lookups",
+        "17000000",
+        "--threads",
+        "4",
+        "--expected-checksum",
+        "969477"
+      ],
+      "checksum_reference": {
+        "grid": "nuclide",
+        "gridpoints": 102400,
+        "lookups": 17000000,
+        "kernel": 0,
+        "checksum": 969477,
+        "evidence": "benchmarks/results/chameleon/table2-calibration/xsbench-nuclide-reference.log"
+      },
+      "measurement": {
+        "case": "xsbench",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-xsbench-local",
+        "target_peak_gib": 50,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 49.97422790527344,
+        "error_percent": -0.051544189453123224,
+        "within_target": true,
+        "memory_mib": 53222,
+        "application_check": {
+          "status": "PASS",
+          "scope": "Profile reference checksum",
+          "expected": "969477",
+          "checksum": [
+            "969477"
+          ]
+        }
+      }
+    },
+    "liblinear": {
+      "target_peak_gib": 32,
+      "vcpus": 4,
+      "status": "measured-pass",
+      "args": [
+        "--skip-build",
+        "--dataset",
+        "{inputs}/kdd12-prefix-68m",
+        "--threads",
+        "4"
+      ],
+      "prepare": {
+        "kind": "xz-prefix",
+        "source": "benchmarks/dataset/kdd12/kdd12.xz",
+        "records": 68000000,
+        "output": "kdd12-prefix-68m"
+      },
+      "selection_note": "56M-record Host probe was below the target; the complete 68M-record Guest run passed peak acceptance.",
+      "measurement": {
+        "case": "liblinear",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-liblinear-local",
+        "target_peak_gib": 32,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 31.686237335205078,
+        "error_percent": -0.9805083274841309,
+        "within_target": true,
+        "memory_mib": 34496,
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "New input: prediction output retained; exact baseline not yet recorded",
+          "accuracy_percent": [
+            "95.1394"
+          ]
+        }
+      },
+      "reference_accuracy_percent": 95.1394,
+      "reference_accuracy_tolerance_pp": 0.001,
+      "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; retain prediction numerator/denominator and require all 68000000 records. Previous exact-match failures remain archived."
+    },
+    "graph500": {
+      "target_peak_gib": 20,
+      "vcpus": 8,
+      "status": "cached32-openmp",
+      "args": [
+        "--skip-build",
+        "--scale",
+        "25",
+        "--edgefactor",
+        "18",
+        "--threads",
+        "8",
+        "--bfs-iterations",
+        "32",
+        "--graph-cache",
+        "{inputs}/graph500/csr-s25-e18-n32-seed3737844653-v1.bin",
+        "--require-cache"
+      ],
+      "previous_protocol_measurement": {
+        "case": "graph500",
+        "run": "benchmarks/results/chameleon/table2-g500-v2",
+        "target_peak_gib": 20,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 19.530010223388672,
+        "error_percent": -2.3499488830566406,
+        "within_target": true,
+        "memory_mib": 22048,
+        "application_check": {
+          "status": "PASS",
+          "validated_bfs": 64
+        }
+      },
+      "input_protocol": "csr-cache32-openmp-v1",
+      "cache_scope": "Generated edges, constructed CSR and fixed32 BFS roots; prepare outside measured runs; loaded data and32 verified BFS included in runtime"
+    },
+    "graphchi": {
+      "target_peak_gib": 23,
+      "vcpus": 4,
+      "status": "measured-pass",
+      "args": [
+        "--skip-build",
+        "--input",
+        "{inputs}/twitter-prefix-1050m.edgelist",
+        "--iterations",
+        "20",
+        "--threads",
+        "4",
+        "--membudget-mib",
+        "28000",
+        "--nshards",
+        "2"
+      ],
+      "prepare": {
+        "kind": "gzip-prefix",
+        "source": "benchmarks/dataset/twitter-2010/twitter-2010.txt.gz",
+        "records": 1050000000,
+        "output": "twitter-prefix-1050m.edgelist"
+      },
+      "selection_note": "Merge buffering has discrete allocation steps. The selected 1.05B-edge / two-shard / 28000-MiB-budget configuration passed the complete Guest run.",
+      "measurement": {
+        "case": "graphchi",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-graphchi-local",
+        "target_peak_gib": 23,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 23.96630859375,
+        "error_percent": 4.201341711956519,
+        "within_target": true,
+        "memory_mib": 26590,
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "GraphChi execution completed; PageRank output retained, no independent numerical oracle"
+        }
+      }
+    },
+    "spark-kmeans": {
+      "target_peak_gib": 15,
+      "vcpus": 8,
+      "status": "measured-pass",
+      "args": [
+        "--input",
+        "{inputs}/km-prefix-30m.dat",
+        "--threads",
+        "8",
+        "--partitions",
+        "16",
+        "--driver-memory-mib",
+        "16384"
+      ],
+      "prepare": {
+        "kind": "prefix",
+        "source": "benchmarks/dataset/spark/km.dat",
+        "records": 30000000,
+        "output": "km-prefix-30m.dat"
+      },
+      "previous_measurements": [
+        {
+          "case": "spark-kmeans",
+          "run": "benchmarks/results/chameleon/table2-apps-v1-spark-kmeans-local",
+          "target_peak_gib": 15,
+          "tolerance_percent": 10,
+          "status": "ADJUST_REQUIRED",
+          "observed_peak_gib": 12.19356918334961,
+          "error_percent": -18.709538777669266,
+          "within_target": false,
+          "memory_mib": 14536,
+          "application_check": {
+            "status": "PASS",
+            "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+            "sse": [
+              1.4870345281283597e+18
+            ],
+            "cost": [
+              1.4870345281283594e+18
+            ],
+            "centers": [
+              [
+                851113.5348786296,
+                195950.43500708046
+              ],
+              [
+                1213758.1992277647,
+                1198519.118586297
+              ],
+              [
+                166339.96258327767,
+                108946.47438232598
+              ],
+              [
+                310575.7172865318,
+                1170738.516854127
+              ]
+            ]
+          }
+        },
+        {
+          "case": "spark-kmeans",
+          "run": "benchmarks/results/chameleon/table2-retry-v2-spark-kmeans-local",
+          "target_peak_gib": 15,
+          "tolerance_percent": 10,
+          "status": "ADJUST_REQUIRED",
+          "observed_peak_gib": 13.04714584350586,
+          "error_percent": -13.01902770996094,
+          "within_target": false,
+          "memory_mib": 15410,
+          "application_check": {
+            "status": "PASS",
+            "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+            "sse": [
+              3.023193540652358e+18
+            ],
+            "cost": [
+              3.023193540652358e+18
+            ],
+            "centers": [
+              [
+                936377.5446778309,
+                265802.45133151644
+              ],
+              [
+                331371.11791183427,
+                1223354.132540804
+              ],
+              [
+                1227543.0311510337,
+                1243641.9292058398
+              ],
+              [
+                191815.19234462778,
+                137967.0315511023
+              ]
+            ]
+          }
+        }
+      ],
+      "measurement": {
+        "case": "spark-kmeans",
+        "run": "benchmarks/results/chameleon/table2-spark-v3-spark-kmeans-local",
+        "target_peak_gib": 15,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 14.556190490722656,
+        "error_percent": -2.9587300618489576,
+        "within_target": true,
+        "memory_mib": 16954,
+        "application_check": {
+          "status": "PASS",
+          "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+          "sse": [
+            3.023265071654475e+18
+          ],
+          "cost": [
+            3.023265071654475e+18
+          ],
+          "centers": [
+            [
+              332252.8853923878,
+              1220348.50245271
+            ],
+            [
+              193455.70349631357,
+              137923.3719269691
+            ],
+            [
+              1227552.4234426941,
+              1245339.9088907826
+            ],
+            [
+              940294.0292303949,
+              266361.5498732994
+            ]
+          ]
+        }
+      }
+    },
+    "pvc": {
+      "target_peak_gib": 16,
+      "vcpus": 4,
+      "status": "measured-pass",
+      "args": [
+        "--skip-build",
+        "--input",
+        "{inputs}/pvc-1600m.bin",
+        "--threads",
+        "4",
+        "--repetitions",
+        "1"
+      ],
+      "prepare": {
+        "kind": "pvc",
+        "bytes": "1600MiB",
+        "output": "pvc-1600m.bin",
+        "note": "Synthetic PVC records; not Wikipedia English trace"
+      },
+      "measurement": {
+        "case": "pvc",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-pvc-local",
+        "target_peak_gib": 16,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 15.944686889648438,
+        "error_percent": -0.3457069396972656,
+        "within_target": true,
+        "memory_mib": 18376,
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "New input: deterministic counts retained; baseline not yet recorded"
+        }
+      },
+      "reference_counts": {
+        "stage1_unique": 62914560,
+        "stage2_urls": 1000000,
+        "total_views": 62914560,
+        "checksum": 11119465522845651179
+      }
+    },
+    "cassandra": {
+      "target_peak_gib": 48,
+      "vcpus": 12,
+      "status": "measured-pass",
+      "args": [
+        "--records",
+        "4000000",
+        "--operations",
+        "1000000",
+        "--threads",
+        "16",
+        "--connections",
+        "8",
+        "--load-target",
+        "10000"
+      ],
+      "service_args": [
+        "--heap-mib",
+        "45056"
+      ],
+      "previous_measurements": [
+        {
+          "case": "cassandra",
+          "run": "benchmarks/results/chameleon/table2-apps-v1-cassandra-local",
+          "target_peak_gib": 48,
+          "tolerance_percent": 10,
+          "status": "ADJUST_REQUIRED",
+          "observed_peak_gib": 46.65790557861328,
+          "error_percent": -2.796030044555664,
+          "within_target": true,
+          "memory_mib": 49826,
+          "application_check": {
+            "status": "FAIL",
+            "scope": "YCSB operation success; not an independent full database-content scan",
+            "insert_ok": [
+              "2718050"
+            ],
+            "read_ok": [
+              "699685"
+            ]
+          }
+        }
+      ],
+      "measurement": {
+        "case": "cassandra",
+        "run": "benchmarks/results/chameleon/table2-retry-v2-cassandra-local",
+        "target_peak_gib": 48,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 46.41720199584961,
+        "error_percent": -3.2974958419799805,
+        "within_target": true,
+        "memory_mib": 49580,
+        "application_check": {
+          "status": "PASS",
+          "scope": "YCSB operation success; not an independent full database-content scan",
+          "insert_ok": [
+            "4000000"
+          ],
+          "read_ok": [
+            "1000000"
+          ]
+        }
+      }
+    },
+    "memcached": {
+      "target_peak_gib": 32,
+      "vcpus": 12,
+      "status": "measured-pass",
+      "args": [
+        "--memory-mib",
+        "32768",
+        "--server-threads",
+        "12",
+        "--runtime",
+        "120",
+        "--rampup",
+        "2",
+        "--mpps",
+        "0.01",
+        "--warmup-keys",
+        "{inputs}/cachelib-8m.keys"
+      ],
+      "note": "Warm cache using 8M distinct real SET keys padded identically to trace replay; same 4096-byte values. Warmup included in measurement window.",
+      "prepare": {
+        "kind": "cachelib-keys",
+        "source": "benchmarks/dataset/cachelib-kvcache-202206",
+        "records": 8000000,
+        "output": "cachelib-8m.keys"
+      },
+      "measurement": {
+        "case": "memcached",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-memcached-local",
+        "target_peak_gib": 32,
+        "tolerance_percent": 10,
+        "status": "PASS",
+        "observed_peak_gib": 32.07343292236328,
+        "error_percent": 0.2294778823852539,
+        "within_target": true,
+        "memory_mib": 34892,
+        "application_check": {
+          "status": "PASS",
+          "scope": "Generator validity/completion; preserves miss, timeout and latency counters",
+          "generator_rows": [
+            {
+              "sample": "1",
+              "target_mpps": "0.010000",
+              "workers": "8",
+              "producer_shards": "2",
+              "load_valid": "1",
+              "invalid_reason": "none",
+              "schedule_complete": "1",
+              "measured_seconds": "108.000000",
+              "producer_wall_seconds": "121.980108",
+              "sample_wall_seconds": "123.001090",
+              "actual_tx_mops": "0.009989",
+              "goodput_mops": "0.009989",
+              "admission_rate": "0.998199",
+              "response_rate": "1.000000",
+              "end_to_end_rate": "0.998199",
+              "scheduled": "1080774",
+              "producer_late": "0",
+              "sent": "1078828",
+              "completed": "1078828",
+              "get_hit": "594547",
+              "get_miss": "357237",
+              "set_success": "120979",
+              "delete_success": "624",
+              "delete_miss": "5441",
+              "server_error": "0",
+              "worker_late": "1946",
+              "queue_full": "0",
+              "no_slot": "0",
+              "send_error": "0",
+              "stopped_at_deadline": "0",
+              "timeout": "0",
+              "outstanding": "0",
+              "socket_receive_drops_total_sample": "0",
+              "rx_handoff_drops_total_sample": "0",
+              "affinity_repairs_total_sample": "0",
+              "host_udp_rcvbuf_errors_delta_total_sample": "0",
+              "maximum_queue_depth_total_sample": "52",
+              "maximum_rx_queue_depth_total_sample": "34",
+              "maximum_producer_lag_us_total_sample": "0.000000",
+              "malformed_fragment_total_sample": "0",
+              "duplicate_fragment_total_sample": "0",
+              "stale_fragment_total_sample": "0",
+              "multi_fragment_response": "594547",
+              "latency_samples": "1078828",
+              "latency_out_of_range": "0",
+              "completed_p50_us": "113.727000",
+              "completed_p90_us": "205.183000",
+              "completed_p99_us": "1521.663000",
+              "completed_p99.9_us": "3164.159000",
+              "completed_p99.99_us": "4431.871000",
+              "completed_mean_us": "170.769824",
+              "completed_max_us": "6524.927000",
+              "offered_p50_us": "113.791000",
+              "offered_p90_us": "206.975000",
+              "offered_p99_us": "1647.615000",
+              "offered_p99.9_us": "NA",
+              "offered_p99.99_us": "NA"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "unavailable": {
+    "spec602-gcc": {
+      "target_peak_gib": 10,
+      "vcpus": 4,
+      "reason": "No licensed runnable SPEC CPU2017 installation"
+    }
+  }
+}

@@ -1,0 +1,252 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <folly/coro/AsyncGenerator.h>
+#include <folly/coro/Task.h>
+
+#include "cachelib/interface/CacheItem.h"
+#include "cachelib/interface/Descriptor.h"
+#include "cachelib/interface/Handle.h"
+#include "cachelib/interface/Result.h"
+#include "cachelib/interface/Stats.h"
+
+namespace facebook::cachelib::interface {
+
+/**
+ * A cache that manages a section of storage.
+ *
+ * The interface is as generic as possible to give components maximum
+ * implementation flexibility.  APIs are coro-compatible so components can run
+ * work asynchronously (some components may run synchronously under the hood).
+ *
+ * NOTE: most APIs take the key argument as a Key (essentially a string view).
+ * This allows maximum performance, but users *must* ensure the string view is
+ * constant across coroutine suspension points.
+ */
+class CacheComponent {
+ public:
+  virtual ~CacheComponent() = default;
+
+  // ------------------------------ Interface ------------------------------ //
+
+  /**
+   * Get the name of the component. Should not change throughout the lifetime of
+   * the cache component since it will be used to identify items during dynamic
+   * reconfiguration.
+   *
+   * @return the name of the component
+   */
+  virtual const std::string& getName() const noexcept = 0;
+
+  /**
+   * Allocate space for a new item. Returns an AllocatedDescriptor that can be
+   * used to access the allocated memory.
+   *
+   * NOTE: the item *must* be inserted before it is visible for lookups.
+   * Allocated items that are not inserted into cache will be freed when the
+   * returned AllocatedDescriptor goes out of scope. In other words if you've
+   * got an AllocatedDescriptor, it's not yet in cache!
+   *
+   * @param key cache item key
+   * @param size size of the value of the item
+   * @param creationTime when the item was created
+   * @param ttlSecs time-to-live of the item in seconds. After the item has been
+   * in cache for this long, it will no longer be visible.
+   * @return an AllocatedDescriptor suitable for writing to cache memory if
+   * space was allocated or an error result otherwise
+   */
+  virtual folly::coro::Task<Result<AllocatedDescriptor>> allocate(
+      Key key, uint32_t size, uint32_t creationTime, uint32_t ttlSecs) = 0;
+
+  /**
+   * Insert an item into cache using the AllocatedHandle released from the
+   * AllocatedDescriptor returned by allocate().
+   * If inserted, the AllocatedHandle is no longer usable (moved out).  If not
+   * inserted, the handle *may or may not* be usable; the behavior is
+   * implementation-defined.  You can check by using `if (handle)`.
+   *
+   * @param handle AllocatedHandle released from the descriptor returned by
+   * allocate()
+   * @return folly::unit or an error result otherwise
+   */
+  virtual folly::coro::Task<UnitResult> insert(AllocatedHandle&& handle) = 0;
+
+  /**
+   * Same as above, but replaces the item if it was already inserted into cache.
+   * Returns an AllocatedHandle to the old item if it was replaced. The input
+   * AllocatedHandle is no longer usable (moved out).
+   *
+   * NOTE: it may be too expensive for some implementations to return the old
+   * item; they'll just return std::nullopt.
+   *
+   * @param handle AllocatedHandle released from the descriptor returned by
+   * allocate()
+   * @return an empty optional if the item was inserted, an AllocatedHandle to
+   * the replaced item if it was replaced (no longer findable replaced) or an
+   * error result otherwise
+   */
+  virtual folly::coro::Task<Result<std::optional<AllocatedHandle>>>
+  insertOrReplace(AllocatedHandle&& handle) = 0;
+
+  /**
+   * Find an item in cache. Returns a descriptor if found, std::nullopt
+   * otherwise. find() is for read-only access, findToWrite() is for write
+   * access.
+   *
+   * The descriptors own the item's lifetime and expose its bytes. A
+   * ReadDescriptor may not be handle-backed; check isHandleBacked() before
+   * calling std::move(readDescriptor).release(), e.g. to pass the ReadHandle to
+   * remove().
+   * WriteDescriptor::mutableData() ensures mutations are flushed by the
+   * component when the descriptor is destroyed.
+   *
+   * @param key cache item key
+   * @return a descriptor if found, std::nullopt if not found or an error result
+   * otherwise
+   */
+  virtual folly::coro::Task<Result<std::optional<ReadDescriptor>>> find(
+      Key key) = 0;
+  virtual folly::coro::Task<Result<std::optional<WriteDescriptor>>> findToWrite(
+      Key key) = 0;
+
+  /**
+   * Iterate over all items in the cache component. Co-await the returned
+   * generator to get an item; the generator will return an empty value when
+   * there are no more items:
+   *
+   * auto iterator = cache->iterator();
+   * while (auto item = co_await iterator.next()) {
+   *   auto&& descriptor = *item;
+   *   // do something with descriptor
+   * }
+   *
+   * Expired items are NOT returned by the iterator. Also there are no
+   * consistency guarantees with concurrent inserts/updates/removals.
+   *
+   * As with find(), yielded descriptors are always handle-backed, so
+   * std::move(descriptor).release() is valid. Detached copies are not
+   * iterable.
+   *
+   * @return an async generator that yields ReadDescriptors for cache items
+   */
+  virtual folly::coro::AsyncGenerator<ReadDescriptor> iterator() = 0;
+
+  /**
+   * Remove an item from cache if it is present.
+   * @param key cache item key
+   * @return a bool indicating whether the item was removed or an error result
+   * otherwise
+   */
+  virtual folly::coro::Task<Result<bool>> remove(Key key) = 0;
+
+  /**
+   * Remove an item from cache. The ReadHandle is no longer usable (moved out).
+   * @param handle cache item handle
+   * @return folly::unit if the item was removed or an error result otherwise
+   */
+  virtual folly::coro::Task<UnitResult> remove(ReadHandle&& handle) = 0;
+
+  /**
+   * Shut down the cache component. Persists state if the component was
+   * configured for persistence and stops all background workers. The component
+   * is no longer usable after calling shutdown().
+   *
+   * @return folly::unit on success or an error result otherwise
+   */
+  virtual UnitResult shutdown() = 0;
+
+  /**
+   * Get stats for the cache component.
+   * @return stats for the cache component
+   */
+  virtual CacheComponentStats getStats() const noexcept = 0;
+
+ protected:
+  /**
+   * Mark an item as inserted into cache.
+   * @param handle handle to the cache item
+   * @param inserted whether the item was inserted into cache
+   */
+  FOLLY_ALWAYS_INLINE void setInserted(Handle& handle, bool inserted) {
+    handle.inserted_ = inserted;
+  }
+
+  /**
+   * Release a handle (make unusable) without adjusting refcounts. Useful when
+   * CacheComponent takes an rvalue ref to a handle that needs to be destroyed.
+   *
+   * @param handle handle to release
+   */
+  FOLLY_ALWAYS_INLINE void releaseHandle(Handle&& handle) { handle.release(); }
+
+  /**
+   * Get a pointer to the inline buffer in the handle, suitable for placement
+   * new of a CacheItem subclass.
+   */
+  static void* getInlineBuf(Handle& handle) noexcept { return handle.buf_; }
+
+ private:
+  // ------------------------------ Interface ------------------------------ //
+
+  /**
+   * Write a dirty cache item back to the cache.
+   *
+   * Called by WriteHandle destructor when the handle is marked dirty.
+   * Implementations should flush any buffered writes to the underlying storage.
+   *
+   * @param item cache item to write back
+   * @return folly::unit on success or an error result otherwise
+   */
+  virtual UnitResult writeBack(CacheItem& item) = 0;
+
+  /**
+   * Release the item from the cache. Frees the associated allocation and
+   * executes any necessary callbacks. Only meant to be called by the component
+   * or cache item handles.
+   *
+   * NOTE: the component is responsible for destroying the item!
+   *
+   * @param item the item to release
+   * @param inserted whether the item was previously inserted into the cache
+   * (callbacks are typically only called when it was inserted)
+   */
+  virtual void release(CacheItem& item, bool inserted) = 0;
+
+  friend class Handle;
+  friend class WriteHandle;
+};
+
+/**
+ * A cache component that provides stats. Your implementation still needs to
+ * bump them!
+ */
+class CacheComponentWithStats : public CacheComponent {
+ public:
+  CacheComponentWithStats(
+      const CacheComponentStatsCollector::LatencySamplingConfig& config = {})
+      : stats_(std::make_unique<CacheComponentStatsCollector>(config)) {}
+
+  CacheComponentStats getStats() const noexcept override {
+    return CacheComponentStats(*stats_);
+  }
+
+ protected:
+  std::unique_ptr<CacheComponentStatsCollector> stats_;
+};
+
+} // namespace facebook::cachelib::interface

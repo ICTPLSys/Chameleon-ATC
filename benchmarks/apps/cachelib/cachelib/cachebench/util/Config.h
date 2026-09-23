@@ -1,0 +1,433 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+#include <unordered_map>
+
+#include "cachelib/cachebench/util/CacheConfig.h"
+#include "cachelib/cachebench/util/JSONConfig.h"
+
+namespace facebook {
+namespace cachelib {
+namespace cachebench {
+
+enum class DramIteratorMode {
+  kDisabled,
+  kRegular,
+  kLockGroup,
+};
+
+struct DistributionConfig : public JSONConfig {
+  explicit DistributionConfig(const folly::dynamic& configJson,
+                              const std::string& configPath);
+
+  // for test purposes
+  DistributionConfig() {}
+
+  // Key size distribution
+  std::vector<double> keySizeRange{};
+  std::vector<double> keySizeRangeProbability{};
+
+  // Value size distribution
+  // The value size will be changed to max(valSize, sizeof(CacheValue))
+  // when allocate in the cache for cachebench. If the size distribution is
+  // important to the test, this may affect the test.
+  std::vector<double> valSizeRange{};
+  std::vector<double> valSizeRangeProbability{};
+
+  // If specified, a file containing a size distribution to be
+  // loaded by the distribution
+  std::string valSizeDistFile{};
+
+  // Chained item length distribution
+  std::vector<double> chainedItemLengthRange{};
+  std::vector<double> chainedItemLengthRangeProbability{};
+
+  // Chained item value size distribution
+  std::vector<double> chainedItemValSizeRange{};
+  std::vector<double> chainedItemValSizeRangeProbability{};
+
+  // Per-request TTL distribution (in seconds). Same shape as valSizeRange:
+  // - discrete (range.size() == probability.size()): each entry is a bucket
+  //   value, picked with the matching probability.
+  // - piecewise (range.size() == probability.size() + 1): each adjacent pair
+  //   defines a uniform bucket, picked with the matching probability.
+  // Empty (default) means no TTL (items live until evicted).
+  std::vector<double> ttlSecsRange{};
+  std::vector<double> ttlSecsRangeProbability{};
+
+  // Popularity distribution shape.  This is defined by a set of weighted
+  // buckets. popularityBuckets defines the number of objects in a bucket, and
+  // popularityWeights defines the weight of each buckets.
+  std::vector<size_t> popularityBuckets{};
+  std::vector<double> popularityWeights{};
+
+  // If specified, a file containing a popularity distribution to be
+  // loaded by the distribution
+  std::string popDistFile{};
+
+  // Operation distribution
+  double getRatio{0.0};
+  double setRatio{0.0};
+  double delRatio{0.0};
+  double addChainedRatio{0.0};
+  double loneGetRatio{0.0};
+  double loneSetRatio{0.0};
+  double updateRatio{0.0};
+  double couldExistRatio{0.0};
+
+  // Set useLegacyKeyGen true when using the old distribution data based on old
+  // key generation scheme. (ex. test configs like graph_cache_leader or
+  // kvcache_l2_wc).
+  //
+  // Our old key generation scheme didn't populate all the keys within the key
+  // space. It was just using some of the keys which was grabbed for the
+  // popularity data from the production workload. So, even though numKeys in
+  // config can be configured to any number, # of total utilized keys are always
+  // # of collected keys or less than that. This was changed to generate any key
+  // within the key space given by numKeys, but with the new scheme, old test
+  // configs key population data is not working anymore. Since we still need to
+  // test with the old test configs based on old key generation scheme, this
+  // option is added.
+  bool useLegacyKeyGen{false};
+
+  bool usesChainedItems() const { return addChainedRatio > 0; }
+
+  // for continuous value sizes, the probability is expressed per interval
+  // instead of per value size range.
+  bool usesDiscreteValueSizes() const {
+    return valSizeRange.size() == valSizeRangeProbability.size();
+  }
+
+  bool usesDiscretePopularity() const {
+    return popularityBuckets.size() && popularityWeights.size();
+  }
+
+  bool hasTtl() const {
+    return !ttlSecsRange.empty() || !ttlSecsRangeProbability.empty();
+  }
+
+  bool usesDiscreteTtl() const {
+    return !ttlSecsRange.empty() &&
+           ttlSecsRange.size() == ttlSecsRangeProbability.size();
+  }
+
+  bool usesPiecewiseTtl() const {
+    return !ttlSecsRangeProbability.empty() &&
+           ttlSecsRange.size() == ttlSecsRangeProbability.size() + 1;
+  }
+};
+
+struct MLAdmissionConfig : public JSONConfig {
+  MLAdmissionConfig() {}
+
+  explicit MLAdmissionConfig(const folly::dynamic& configJson);
+
+  std::string modelPath;
+
+  // Map from feature name to its corresponding index in sample fields.
+  // Note these features could be in defined fields, aggregation Fields,
+  // or ExtraFields.
+  // Support two kinds of features:
+  // numeric features, categorical features.
+  std::unordered_map<std::string, uint32_t> numericFeatures;
+  std::unordered_map<std::string, uint32_t> categoricalFeatures;
+
+  double targetRecall;
+  size_t admitCategory;
+};
+
+struct ReplayGeneratorConfig : public JSONConfig {
+  ReplayGeneratorConfig() {}
+
+  explicit ReplayGeneratorConfig(const folly::dynamic& configJson);
+
+  // serializeMode determines how/whether we serialize requests with same
+  // key for replaying. Need to be one of the 3:
+  // strict: requests for same key are serialized, so they are processed
+  //         sequentially
+  // relaxed: requests for same key with certain time interval are serialized
+  // none: no guarantee
+  enum class SerializeMode {
+    strict = 0,
+    relaxed,
+    none,
+  };
+  std::string replaySerializationMode{"strict"};
+
+  // amplifies the number of unique keys by
+  // a factor. each key gets amplified by
+  // ampFactor times
+  uint32_t ampFactor{1};
+  // amplifies the object size by a factor
+  uint32_t ampSizeFactor{1};
+
+  // the path of the binary file to make
+  std::string binaryFileName{};
+
+  // The number of requests (not including ampFactor) to skip
+  // in the trace. This is so that after warming up the cache
+  // with a certain number of requests, we can easily reattach
+  // and resume execution with different cache configurations.
+  uint64_t fastForwardCount{0};
+
+  // The number of requests to pre load into the request queues
+  uint64_t preLoadReqs{0};
+
+  // The time interval threshold when replaySerializationMode is relaxed.
+  uint64_t relaxedSerialIntervalMs{500};
+
+  // # of extra fields in trace sample. These are used to offer break down of
+  // stats by some workload generators.  These fields are placed after
+  // defined fields
+  uint32_t numAggregationFields{0};
+
+  // # of extra fields after the defined fields and numAggregationFields in
+  // trace sample. E.g., additional ML features can be put here
+  uint32_t numExtraFields{0};
+
+  // Used only for BlockChunkReplayGenerator; default 16MB
+  uint32_t blockSizeKB{16 * 1024};
+
+  // Used only for BlockChunkReplayGenerator; default 128KB
+  uint32_t chunkSizeKB{128};
+
+  // For each aggregation field, we track the statistics broken down by
+  // specific aggregation values. this map specifies the values for which
+  // stats are aggregated by per field.
+  // Mapping: field index in the aggregation fields (starting at 0) -->
+  // list of values we track for that field
+  std::unordered_map<uint32_t, std::vector<std::string>> statsPerAggField;
+
+  std::shared_ptr<MLAdmissionConfig> mlAdmissionConfig;
+
+  SerializeMode getSerializationMode() const;
+};
+
+// The class defines the admission policy at stressor level. The stressor
+// checks the admission policy first before inserting an item into cache.
+//
+// This base class always returns true, allowing the insertion.
+class StressorAdmPolicy {
+ public:
+  virtual ~StressorAdmPolicy() = default;
+
+  virtual bool accept(
+      const std::unordered_map<std::string, std::string>& /*featureMap*/) {
+    return true;
+  }
+};
+
+// Defines the warmup check policy. The default policy ends the warmup period on
+// the first eviction from the cache. It also allows using a fixed request
+// timestamp or the earlier of the two.
+struct WarmupCheckPolicy : public JSONConfig {
+  WarmupCheckPolicy() {}
+
+  explicit WarmupCheckPolicy(const folly::dynamic& configJson);
+
+  WarmupCheckPolicy(uint64_t evictionCountThreshold,
+                    uint64_t requestTimestampThreshold)
+      : evictionCountThreshold(evictionCountThreshold),
+        requestTimestampThreshold(requestTimestampThreshold) {}
+
+  // Consider the cache warmed up after this many evictions from the cache. Use
+  // 0 to disable eviction checks.
+  uint64_t evictionCountThreshold{1};
+
+  // Consider the cache warmed up with the first request having a timestamp
+  // greater than this value. Use 0 to disable timestamp checks.
+  uint64_t requestTimestampThreshold{0};
+};
+
+struct StressorConfig : public JSONConfig {
+  // Which workload generator to use, default is
+  // workload generator which samples from some distribution
+  // but "replay" allows replaying a production trace, for example.
+  std::string generator{};
+
+  // Valid when generator is replay generator
+  ReplayGeneratorConfig replayGeneratorConfig;
+
+  // name identifying a custom type of the stress test. When empty, launches a
+  // standard stress test using the workload config against an instance of the
+  // cache defined by the CacheConfig. Other supported options are
+  // "high_refcount", "cachelib_map", "cachelib_range_map", "fast_shutdown",
+  // "async", "object_cache", and "cache_component"
+  std::string name;
+
+  // follow get misses with a set
+  bool enableLookaside{false};
+
+  // ignore opCount and does not repeat operations
+  bool ignoreOpCount{false};
+
+  // only set a key in the cache if the key already doesn't exist
+  // this is useful for replaying traces with both get and set, and also
+  // for manually configured synthetic workloads.
+  bool onlySetIfMiss{false};
+
+  // if enabled, initializes an item with random bytes. For consistency mode,
+  // this option is ignored since the consistency check fills in a sequence
+  // number into the item.
+  bool populateItem{true};
+
+  // interval in milliseconds between taking a snapshot of the stats
+  uint64_t samplingIntervalMs{1000};
+
+  // If enabled, stressor will verify operations' results are consistent.
+  bool checkConsistency{false};
+
+  // If enabled, stressor will check whether nvm cache has been warmed up and
+  // output stats after warmup.
+  bool checkNvmCacheWarmUp{false};
+
+  // Valid when checkNvmCacheWarmUp is true
+  WarmupCheckPolicy nvmCacheWarmupCheckPolicy{1, 0};
+
+  // If enabled, each value will be read on find. This is useful for measuring
+  // performance of value access.
+  bool touchValue{false};
+
+  uint64_t numOps{0};     // operation per thread
+  uint64_t numThreads{0}; // number of threads that will run
+  uint64_t numKeys{0};    // number of keys that will be used
+
+  // Req generation throttling delay for each thread; those generated reqs are
+  // subject to an additional global rate shaping specified below (opRatePerSec)
+  uint64_t opDelayBatch{0}; // how many requests before a delay is added
+  uint64_t opDelayNs{0};    // nanoseconds delay between each operation
+
+  // Max overall number of operations per second (global); the token bucket
+  // is used for limiting/shaping the global req rate
+  uint64_t opRatePerSec{0};
+  uint64_t opRateBurstSize{0};
+
+  // Distribution of operations across the pools in cache
+  // This cannot exceed the number of pools in cache
+  std::vector<double> opPoolDistribution{1.0};
+
+  // Distribution of keys across pools in cache (1 key only belongs to 1 pool)
+  std::vector<double> keyPoolDistribution{1.0};
+
+  // Max number of inconsistency detection (exits after exceeded).
+  uint64_t maxInconsistencyCount{50};
+
+  // Trace file containing the operations for more accurate replay
+  // Supported formats include specifying an absolute filename and filename
+  // relative to the configPath
+  std::string traceFileName{};
+  std::vector<std::string> traceFileNames{};
+
+  // location of the path for the files referenced inside the json. If not
+  // specified, it defaults to the path of the json file being parsed.
+  std::string configPath{};
+
+  // Configs for piecewise caching in which we split a huge content into
+  // multiple pieces.
+  // cachePieceSize: size of each piece
+  // maxCachePieces: maximum number of pieces we cache for a single content
+  uint64_t cachePieceSize{65536}; // 64KB
+  uint64_t maxCachePieces{32000}; // 32000 * 64KB = 2GB
+
+  // Miss trace output configuration
+  // If set, outputs all cache misses to this file for multi-tier simulation
+  std::string missTraceFile{};
+
+  // If enabled and using trace replay mode. We will repeat the trace file again
+  // and again until the number of operations specified in the test config.
+  bool repeatTraceReplay{false};
+
+  // Max number of invalid destructor detection (destructor call more than once
+  // for an item or wrong version).
+  uint64_t maxInvalidDestructorCount{50};
+
+  // Allows multiple distributions, one corresponding to each pool of workload
+  // in the cache.
+  std::vector<DistributionConfig> poolDistributions;
+
+  // Factor to be divided from the timestamp to get to unit "second"
+  // By default, timestamps are in milliseconds.
+  uint64_t timestampFactor{1000};
+
+  bool useCombinedLockForIterators{false};
+
+  // If enabled, runs DRAM iterator sweeps in the background while the stressor
+  // workload is running.
+  DramIteratorMode dramIteratorMode{DramIteratorMode::kDisabled};
+  uint64_t dramIteratorIntervalMs{10000};
+  // A zero sleep duration disables throttling and requires workMs to be zero.
+  uint64_t dramIteratorSleepMs{0};
+  uint64_t dramIteratorWorkMs{0};
+
+  // admission policy for cache.
+  std::shared_ptr<StressorAdmPolicy> admPolicy{};
+
+  StressorConfig() {}
+  explicit StressorConfig(const folly::dynamic& configJson);
+
+  bool usesDramIterator() const;
+  bool usesRegularDramIterator() const;
+  bool usesLockGroupDramIterator() const;
+
+  // return true if the workload configuration uses chained items.
+  bool usesChainedItems() const;
+};
+
+// user defined function to configure parts of cache config outside of the
+// json
+using CacheConfigCustomizer = std::function<CacheConfig(CacheConfig)>;
+
+// user defined function to configure parts of stressor config outside of the
+// json
+using StressorConfigCustomizer = std::function<StressorConfig(StressorConfig)>;
+
+// Configs for setting up the cache allocator and specify load test parameters
+class CacheBenchConfig {
+ public:
+  // read the json file in the path and initialize the cache bench
+  // configuration. Some fb specific configuration is abstracted out of the
+  // json file and is set through a custom setup to keep the dependencies
+  // separate.
+  //
+  // @param path   path for the json file
+  // @param c      the customization function for cache config (optional)
+  // @param s      the customization function for stressor config (optional)
+  explicit CacheBenchConfig(const std::string& path,
+                            const CacheConfigCustomizer& c = {},
+                            const StressorConfigCustomizer& s = {});
+
+  const CacheConfig& getCacheConfig(size_t instanceId) const {
+    return configs_[instanceId].cacheConfig_;
+  }
+  const StressorConfig& getStressorConfig(size_t instanceId) const {
+    return configs_[instanceId].stressorConfig_;
+  }
+
+  // Number of concurrent cachebench instances to run.
+  size_t getNumInstances() const { return configs_.size(); }
+
+ private:
+  struct Config {
+    CacheConfig cacheConfig_;
+    StressorConfig stressorConfig_;
+  };
+  std::vector<Config> configs_;
+};
+
+} // namespace cachebench
+} // namespace cachelib
+} // namespace facebook

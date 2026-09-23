@@ -1,0 +1,133 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.cassandra.cql3;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import javax.annotation.Nullable;
+
+import com.google.common.collect.ImmutableList;
+
+import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.TableMetadata;
+
+public class VariableSpecifications
+{
+    private final List<ColumnIdentifier> variableNames;
+    private final List<ColumnSpecification> specs;
+    private volatile ImmutableList<ColumnSpecification> immutableSpecs;
+    private final ColumnMetadata[] targetColumns;
+    // TODO (desired): this is an ugly way to figure out which sub statement we're using as a key in transactions, but path of least resistance...
+    private @Nullable Object[] targetOwners;
+
+    public VariableSpecifications(List<ColumnIdentifier> variableNames)
+    {
+        this.variableNames = variableNames;
+        this.specs = Arrays.asList(new ColumnSpecification[variableNames.size()]);
+        this.targetColumns = new ColumnMetadata[variableNames.size()];
+    }
+
+    public void setSaveTargetOwners(boolean saveTargetOwners)
+    {
+        this.targetOwners = saveTargetOwners ? new Object[variableNames.size()] : null;
+    }
+
+
+    /**
+     * Returns an empty instance of <code>VariableSpecifications</code>.
+     * @return an empty instance of <code>VariableSpecifications</code>
+     */
+    public static VariableSpecifications empty()
+    {
+        return new VariableSpecifications(Collections.emptyList());
+    }
+
+    public boolean isEmpty()
+    {
+        return variableNames.isEmpty();
+    }
+
+    public List<ColumnSpecification> getBindVariables()
+    {
+        return specs;
+    }
+
+    public ImmutableList<ColumnSpecification> getImmutableBindVariables()
+    {
+        ImmutableList<ColumnSpecification> result = immutableSpecs;
+        if (result == null) // strong syncrhronization is not needed, it is ok if sometimes we create several immutable lists
+        {
+            result = ImmutableList.copyOf(specs);
+            immutableSpecs = result;
+        }
+        return result;
+    }
+
+    /**
+     * Returns an array with the same length as the number of partition key columns for the table corresponding
+     * to table.  Each short in the array represents the bind index of the marker that holds the value for that
+     * partition key column.  If there are no bind markers for any of the partition key columns, null is returned.
+     *
+     * Callers of this method should ensure that all statements operate on the same table.
+     */
+    public short[] getPartitionKeyBindVariableIndexes(TableMetadata metadata, Object targetOwner)
+    {
+        short[] partitionKeyPositions = new short[metadata.partitionKeyColumns().size()];
+        boolean[] set = new boolean[partitionKeyPositions.length];
+        for (int i = 0; i < targetColumns.length; i++)
+        {
+            ColumnMetadata targetColumn = targetColumns[i];
+            if (targetColumn != null && targetColumn.isPartitionKey() && (targetOwners == null || (targetOwner != null && targetOwners[i] == targetOwner)))
+            {
+                assert targetColumn.ksName.equals(metadata.keyspace) && targetColumn.cfName.equals(metadata.name);
+                partitionKeyPositions[targetColumn.position()] = (short) i;
+                set[targetColumn.position()] = true;
+            }
+        }
+
+        for (boolean b : set)
+            if (!b)
+                return null;
+
+        return partitionKeyPositions;
+    }
+
+    public void add(int bindIndex, ColumnSpecification spec, Object owner)
+    {
+        assert immutableSpecs == null : "bind variable specs cannot be modified once we started to use them";
+        if (spec instanceof ColumnMetadata)
+            targetColumns[bindIndex] = (ColumnMetadata) spec;
+
+        if (targetOwners != null)
+            targetOwners[bindIndex] = owner;
+
+        ColumnIdentifier bindMarkerName = variableNames.get(bindIndex);
+        // Use the user name, if there is one
+        if (bindMarkerName != null)
+            spec = new ColumnSpecification(spec.ksName, spec.cfName, bindMarkerName, spec.type);
+        specs.set(bindIndex, spec);
+    }
+
+    @Override
+    public String toString()
+    {
+        return specs.toString();
+    }
+}

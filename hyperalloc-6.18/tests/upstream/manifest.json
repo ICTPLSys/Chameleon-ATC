@@ -1,0 +1,57 @@
+{
+  "linux_release": "6.18",
+  "linux_source_commit": "6cff96baebb6e2f9880468e0b5c6b8f12cdd785f",
+  "stream_source_commit": "54ab9af3610da6011ce9c9f597fed8dd96367165",
+  "build_script": "tests/upstream/build.sh",
+  "guest_runtime_status": "passed",
+  "tests": [
+    {
+      "binary": "madv_populate",
+      "args": [],
+      "expect_exit": 0,
+      "expect_tap_cases_current_config": 16,
+      "reject_skip": true
+    },
+    {
+      "binary": "mremap_dontunmap",
+      "args": [],
+      "expect_exit": 0,
+      "expect_tap_cases_current_config": 5,
+      "reject_skip": true
+    },
+    {
+      "binary": "khugepaged-anon-subset",
+      "args": [
+        "0"
+      ],
+      "expect_exit": 0,
+      "expect_marker": "PASS upstream-collapse-subset order=0 cases=10 plus_alloc_at_fault",
+      "subset": true
+    },
+    {
+      "binary": "khugepaged-anon-subset",
+      "args": [
+        "4"
+      ],
+      "expect_exit": 0,
+      "expect_marker": "PASS upstream-collapse-subset order=4 cases=10 plus_alloc_at_fault",
+      "subset": true
+    },
+    {
+      "binary": "stream-check",
+      "args": [],
+      "expect_exit": 0,
+      "expect_marker": "PASS STREAM all-elements arrays=4194304 iterations=10 kernels=4",
+      "array_memory_bytes": 100663296,
+      "threads": 1
+    }
+  ],
+  "host_preflight": {
+    "test": "stream-check",
+    "status": "passed",
+    "log": "results/upstream-stream-host/stream-host.log",
+    "scope": "process-local workload only, no host MM sysfs changes"
+  },
+  "original_inflate_suite": "not_run; Python/SSH/QMP orchestration cannot be statically linked",
+  "guest_report": "results/vm-manual/report.json"
+}

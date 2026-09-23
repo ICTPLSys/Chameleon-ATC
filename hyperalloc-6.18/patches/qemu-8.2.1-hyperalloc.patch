@@ -1,0 +1,442 @@
+diff --git a/.gitmodules b/.gitmodules
+index 2e136d3..73cae4c 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -43,6 +43,3 @@
+ [submodule "tests/lcitool/libvirt-ci"]
+ 	path = tests/lcitool/libvirt-ci
+ 	url = https://gitlab.com/libvirt/libvirt-ci.git
+-[submodule "subprojects/llfree-c/llc"]
+-	path = subprojects/llfree-c/llc
+-	url = git@github.com:luhsra/llfree-c.git
+diff --git a/hw/virtio/virtio-llfree-balloon.c b/hw/virtio/virtio-llfree-balloon.c
+index 76fc82f..e808d27 100644
+--- a/hw/virtio/virtio-llfree-balloon.c
++++ b/hw/virtio/virtio-llfree-balloon.c
+@@ -52,8 +52,12 @@ typedef struct ll_install_info {
+     uint32_t node;
+     uint32_t zone;
+     uint64_t frame;
++    uint32_t order;
++    uint32_t status;
+ } ll_install_info_t;
+ 
++QEMU_BUILD_BUG_ON(offsetof(ll_install_info_t, status) != 20);
++
+ /// Static Memory Zone Preference Definitions.
+ /// We exclude ZONE_DMA as it is already quite small.
+ static const ll_zone_type_t zone_priority[] = {
+@@ -436,8 +440,9 @@ static int32_t ll_auto_soft_reclaim(VirtIOLLFreeBalloon *dev)
+ /*-----------------------------------------------------------------------------------------------
+ | LLFree-Balloon Deflation Operation Functions
+ -------------------------------------------------------------------------------------------------*/
+-static void map_range(VirtIOLLFreeBalloon *dev, hwaddr gpa, uint64_t size)
++static int map_range(VirtIOLLFreeBalloon *dev, hwaddr gpa, uint64_t size)
+ {
++    int ret;
+     // find QEMUs matching memory section
+     MemoryRegionSection section =
+         memory_region_find(get_system_memory(), gpa, size);
+@@ -445,27 +450,47 @@ static void map_range(VirtIOLLFreeBalloon *dev, hwaddr gpa, uint64_t size)
+     // we registered as RamDiscardManager for the RAM memory region
+     // every section here should be part of this region and therefore we should
+     // see that the RamDiscardManager field has been set by us
+-    if (section.mr == NULL)
+-        g_assert(!"map: invalid section");
++    if (section.mr == NULL) {
++        return -EINVAL;
++    }
+ 
+     if (!memory_region_is_ram(section.mr) || memory_region_is_rom(section.mr) ||
+-        memory_region_is_romd(section.mr))
+-        g_assert(!"map: invalid section");
++        memory_region_is_romd(section.mr) ||
++        int128_get64(section.size) != size) {
++        ret = -EINVAL;
++        goto out;
++    }
+ 
+     // Allocating host physical memory, in case of VFIO
+     // additionally create IOMMU mapping
+     void *addr =
+         memory_region_get_ram_ptr(section.mr) + section.offset_within_region;
+-    void *host_addr = (void *)((uintptr_t)addr & ~(size - 1));
++    /* Populate exactly the translated range, not a rounded-down host VA. */
++    ret = qemu_madvise(addr, size, MADV_POPULATE_WRITE);
++    if (ret != 0) {
++        ret = -errno;
++        error_report("llfree: populate failed: %s", strerror(-ret));
++        goto rollback;
++    }
+ 
+-    if (virtio_has_feature(dev->host_features, LL_BALLOON_F_VFIO)) {
+-        notify_populate(dev, section.offset_within_region, size);
++    ret = notify_populate(dev, section.offset_within_region, size);
++    if (ret) {
++        /* notify_populate rolls back already-notified listeners. */
++        error_report("llfree: DMA populate failed: %s", strerror(-ret));
+     }
++rollback:
++    if (ret) {
++        ram_addr_t rb_offset;
++        RAMBlock *rb = qemu_ram_block_from_host(addr, false, &rb_offset);
+ 
+-    int ret = qemu_madvise(host_addr, size, MADV_POPULATE_WRITE);
+-    if (ret != 0)
+-        error_report("madvise failed with %d", ret);
++        /* MADV_POPULATE_WRITE can fail after populating part of the range. */
++        if (ram_block_discard_range(rb, rb_offset, size) < 0) {
++            error_report("llfree: failed to discard backing after install error");
++        }
++    }
++out:
+     memory_region_unref(section.mr);
++    return ret;
+ }
+ 
+ static int32_t return_node(VirtIOLLFreeBalloon *dev, size_t node, size_t target)
+@@ -663,83 +688,104 @@ static void handle_llfree_zone_info(VirtIODevice *vdev, VirtQueue *vq)
+     return;
+ }
+ 
+-struct install_range_ctx {
+-    VirtIOLLFreeBalloon *dev;
+-    ll_zone_t *zone;
+-};
+-
+-static int install_range_cb(void *ctx, uint64_t frame, size_t len)
++/* The zone lock serializes installation against both kinds of reclaim. */
++static int install_child(VirtIOLLFreeBalloon *dev, ll_zone_t *zone,
++                         uint64_t frame)
+ {
+-    struct install_range_ctx *data = ctx;
+-    g_assert(frame % LL_HUGE_COUNT == 0);
+-    g_assert(frame < ll_zone_frames(data->zone));
++    ll_reclaim_states_t *states = ll_zone_states(zone);
++    llfree_result_t res;
++    int ret;
+ 
+-    hwaddr gpa_addr = (ll_zone_start_frame(data->zone) + frame) * LL_PAGE_SIZE;
+-    map_range(data->dev, gpa_addr, len * LL_PAGE_SIZE);
++    if (!ll_zone_is_evicted(zone, frame)) {
++        return ll_reclaim_states_is_installed(states, frame) ? 0 : -EIO;
++    }
++    if (!ll_reclaim_states_is_soft(states, frame)) {
++        return -EBUSY;
++    }
+ 
+-    // Update llfree state
+-    for (size_t i = 0; i < len; i += LL_HUGE_COUNT) {
+-        llfree_result_t res = ll_zone_install(data->zone, frame + i);
+-        if (!llfree_is_ok(res)) {
+-            error_report("Failed install %ld", frame + i);
+-            return -1;
+-        }
++    /* Shared across per-vCPU queues, including queues using other IOThreads. */
++    uint32_t failures;
++    do {
++        failures = qatomic_read(&dev->test_install_fail_count);
++    } while (failures &&
++             qatomic_cmpxchg(&dev->test_install_fail_count,
++                            failures, failures - 1) != failures);
++    if (failures) {
++        info_report("llfree: injected install failure frame=%" PRIu64, frame);
++        return -ENOMEM;
++    }
++
++    ret = map_range(dev, (ll_zone_start_frame(zone) + frame) * LL_PAGE_SIZE,
++                    LL_HUGE_SIZE);
++    if (ret) {
++        /* Keep host state S and shared E=1. The guest must roll back. */
++        return ret;
++    }
++
++    g_assert(ll_frame_states_install(states, frame));
++    res = ll_zone_install(zone, frame);
++    if (!llfree_is_ok(res)) {
++        g_assert(ll_frame_states_soft_reclaim(states, frame));
++        error_report("llfree: failed metadata install frame=%" PRIu64, frame);
++        return -EIO;
+     }
+     return 0;
+ }
+ 
+-// Handle request from guest to populate the given memory range
++/* OUT: node:u32, zone:u32, frame:u64, order:le32; IN: status:le32.
++ * A failed request can have installed an earlier child. Such children stay
++ * installed; freeing the allocation in the guest remains valid in either state.
++ */
+ static void handle_install_request(VirtIODevice *vdev, VirtQueue *vq)
+ {
+     VirtIOLLFreeBalloon *dev = VIRTIO_LLFREE_BALLOON(vdev);
+-
+     VirtQueueElement *elem = virtqueue_pop(vq, sizeof(VirtQueueElement));
+-    if (!elem)
++    ll_install_info_t info = { 0 };
++    uint32_t status;
++    uint64_t frame, end;
++    ll_zone_t *zone;
++    int ret = -EINVAL;
++
++    if (!elem) {
+         return;
++    }
+ 
+-    ll_install_info_t info;
++    if (iov_size(elem->out_sg, elem->out_num) !=
++            offsetof(ll_install_info_t, status) ||
++        iov_size(elem->in_sg, elem->in_num) != sizeof(status)) {
++        virtio_error(vdev, "llfree: invalid install descriptor lengths");
++        goto finish;
++    }
+     iov_to_buf(elem->out_sg, elem->out_num, 0, &info,
+-               sizeof(ll_install_info_t));
+-
+-    // calculate corresponding huge frame
+-    uint64_t huge_frame = align_down(info.frame, LL_HUGE_COUNT);
+-    ll_zone_t *zone = ll_nodes_get_zone(dev->nodes, info.node, info.zone);
+-
+-    ll_zone_lock(zone);
+-
+-    // already populated
+-    if (!ll_zone_is_evicted(zone, huge_frame)) {
+-        // check host state
+-        g_assert(
+-            ll_reclaim_states_is_installed(ll_zone_states(zone), huge_frame));
++               offsetof(ll_install_info_t, status));
++    info.order = le32_to_cpu(info.order);
++    if (info.order > LLFREE_MAX_ORDER || info.zone >= LL_ZONE_LEN) {
+         goto finish;
+     }
++    zone = ll_nodes_get_zone(dev->nodes, info.node, info.zone);
++    if (!zone || info.frame >= ll_zone_frames(zone) ||
++        (1ULL << info.order) > ll_zone_frames(zone) - info.frame ||
++        info.frame % (1ULL << info.order)) {
++        goto finish;
++    }
++    end = info.frame + (1ULL << info.order);
+ 
+-    // check host state
+-    g_assert(ll_reclaim_states_is_soft(ll_zone_states(zone), huge_frame));
+-
+-    struct install_range_ctx ctx = {.zone = zone, .dev = dev};
+-
+-#if 0
+-    // deflate whole tree
+-    aggregate_t ag = aggregate_start(install_range_cb, &ctx);
+-    uint64_t tree_offset = align_down(huge_frame, LLFREE_TREE_SIZE);
+-    for (size_t child = 0; child < LLFREE_TREE_CHILDREN; child++) {
+-        uint64_t frame = tree_offset + child * LLFREE_CHILD_SIZE;
+-        if (ll_frame_states_install(ll_zone_states(zone), frame)) {
+-            aggregate_next(&ag, frame, LL_HUGE_COUNT);
++    ll_zone_lock(zone);
++    ret = 0;
++    for (frame = align_down(info.frame, LL_HUGE_COUNT);
++         frame < end; frame += LL_HUGE_COUNT) {
++        ret = install_child(dev, zone, frame);
++        if (ret) {
++            break;
+         }
+     }
+-    aggregate_finish(&ag);
+-#else
+-    g_assert(ll_frame_states_install(ll_zone_states(zone), huge_frame));
+-    install_range_cb(&ctx, huge_frame, LL_HUGE_COUNT);
+-#endif
+-
+-finish:
+     ll_zone_unlock(zone);
+ 
+-    virtqueue_push(vq, elem, 0);
++finish:
++    status = cpu_to_le32(-ret);
++    size_t written = iov_from_buf(elem->in_sg, elem->in_num, 0,
++                                 &status, sizeof(status));
++    virtqueue_push(vq, elem, written);
+     virtio_notify(vdev, vq);
+     g_free(elem);
+ }
+@@ -945,7 +991,7 @@ static void ll_rdm_register_listener(RamDiscardManager *rdm,
+                      strerror(-ret));
+     }
+ 
+-    virtio_add_feature((uint64_t *)&dev->host_features, LL_BALLOON_F_VFIO);
++    qatomic_or(&dev->host_features, 1U << LL_BALLOON_F_VFIO);
+ }
+ 
+ struct ll_notify_discard_data {
+@@ -979,8 +1025,7 @@ static void ll_rdm_unregister_listener(RamDiscardManager *rdm,
+     QLIST_REMOVE(rdl, next);
+ 
+     if (QLIST_EMPTY(&dev->rdl_list))
+-        virtio_clear_feature((uint64_t *)&dev->host_features,
+-                             LL_BALLOON_F_VFIO);
++        qatomic_and(&dev->host_features, ~(1U << LL_BALLOON_F_VFIO));
+ }
+ 
+ /*-----------------------------------------------------------------------------------------------
+@@ -1242,7 +1287,7 @@ static void ll_init_vqs(VirtIODevice *vdev, VirtIOLLFreeBalloon *dev)
+     dev->llfree_auto_deflate_vqs = g_new(VirtQueue *, get_num_vcpus());
+     for (uint32_t i = 0; i < get_num_vcpus(); i++) {
+         dev->llfree_auto_deflate_vqs[i] =
+-            virtio_add_queue(vdev, 1, handle_install_request);
++            virtio_add_queue(vdev, 2, handle_install_request);
+     }
+ 
+     dev->num_queues = LL_NUM_STATIC_QUEUES + get_num_vcpus();
+@@ -1364,7 +1409,7 @@ static uint64_t ll_balloon_get_features(VirtIODevice *vdev, uint64_t f,
+                                         Error **errp)
+ {
+     VirtIOLLFreeBalloon *dev = VIRTIO_LLFREE_BALLOON(vdev);
+-    return f | dev->host_features;
++    return f | dev->host_features | (1ULL << LL_BALLOON_F_INSTALL_RESULT);
+ }
+ 
+ // for now unused functions, but must exist
+@@ -1416,6 +1461,8 @@ static const VMStateDescription vmstate_virtio_llfree_balloon = {
+ };
+ 
+ static Property virtio_llfree_balloon_properties[] = {
++    DEFINE_PROP_UINT32("install-fail-count", VirtIOLLFreeBalloon,
++                       test_install_fail_count, 0),
+     DEFINE_PROP_BIT("shrink-pagecache", VirtIOLLFreeBalloon, host_features,
+                     LL_BALLOON_F_SHRINK_PAGECACHE, false),
+     DEFINE_PROP_BIT("auto-mode", VirtIOLLFreeBalloon, host_features,
+diff --git a/include/hw/virtio/virtio-llfree-balloon.h b/include/hw/virtio/virtio-llfree-balloon.h
+index 8a3cfe5..39e2edd 100644
+--- a/include/hw/virtio/virtio-llfree-balloon.h
++++ b/include/hw/virtio/virtio-llfree-balloon.h
+@@ -56,6 +56,8 @@ struct VirtIOLLFreeBalloon {
+     uint32_t shrink_pagecache;
+     uint32_t pagecache_retries;
+     uint32_t host_features;
++    /* Explicit fault injection for install error-path regression tests. */
++    uint32_t test_install_fail_count;
+     bool qemu_4_0_config_size;
+ };
+ 
+diff --git a/include/standard-headers/linux/virtio_llfree_balloon.h b/include/standard-headers/linux/virtio_llfree_balloon.h
+index edc6a68..902024a 100644
+--- a/include/standard-headers/linux/virtio_llfree_balloon.h
++++ b/include/standard-headers/linux/virtio_llfree_balloon.h
+@@ -34,6 +34,7 @@
+ #define LL_BALLOON_F_SHRINK_PAGECACHE 1
+ #define LL_BALLOON_F_AUTO_MODE 4
+ #define LL_BALLOON_F_VFIO 6
++#define LL_BALLOON_F_INSTALL_RESULT 8
+ // #define LL_BALLOON_F_IOCTL 7
+ 
+ struct ll_balloon_config {
+diff --git a/subprojects/llfree-c/llc b/subprojects/llfree-c/llc
+deleted file mode 160000
+index 9f10f94..0000000
+--- a/subprojects/llfree-c/llc
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit 9f10f948556c530b7b8a8a3cab605591c8d51110
+diff --git a/subprojects/llfree-c/llc b/subprojects/llfree-c/llc
+new file mode 120000
+index 0000000..bd6c564
+--- /dev/null
++++ b/subprojects/llfree-c/llc
+@@ -0,0 +1 @@
++../../../llfree-c
+\ No newline at end of file
+diff --git a/tests/unit/meson.build b/tests/unit/meson.build
+index a05d471..24471ea 100644
+--- a/tests/unit/meson.build
++++ b/tests/unit/meson.build
+@@ -168,6 +168,12 @@ if have_ga and targetos == 'linux'
+ endif
+ 
+ test_env = environment()
++if have_llfree
++  tests += {'test-llfree-states': [
++    '../../llfree-qemu/llfree_states.c',
++    llfree_qemu_inc_dep, llfree_c_private_dep,
++  ]}
++endif
+ test_env.set('G_TEST_SRCDIR', meson.current_source_dir())
+ test_env.set('G_TEST_BUILDDIR', meson.current_build_dir())
+ 
+diff --git a/tests/unit/test-llfree-states.c b/tests/unit/test-llfree-states.c
+new file mode 100644
+index 0000000..47b894d
+--- /dev/null
++++ b/tests/unit/test-llfree-states.c
+@@ -0,0 +1,75 @@
++#include "qemu/osdep.h"
++#include "llfree_states.h"
++
++#define HUGE_FRAMES 512
++#define TREE_FRAMES (8 * HUGE_FRAMES)
++
++static void test_lifecycle(void)
++{
++    ll_reclaim_states_t *states = ll_reclaim_states_create(2 * TREE_FRAMES);
++    uint64_t frame = TREE_FRAMES + HUGE_FRAMES;
++    llfree_result_t res;
++
++    g_assert_true(ll_reclaim_states_is_installed(states, frame));
++    g_assert_true(ll_frame_states_soft_reclaim(states, frame));
++    g_assert_false(ll_frame_states_soft_reclaim(states, frame));
++    g_assert_false(ll_frame_states_hard_reclaim(states, frame, false));
++    g_assert_true(ll_frame_states_hard_reclaim(states, frame, true));
++    g_assert_true(ll_reclaim_states_is_hard(states, frame));
++    g_assert_false(ll_frame_states_install(states, frame));
++
++    res = ll_frame_states_return_next(states);
++    g_assert_true(llfree_is_ok(res));
++    g_assert_cmpuint(res.frame, ==, frame);
++    g_assert_true(ll_reclaim_states_is_soft(states, frame));
++    g_assert_false(llfree_is_ok(ll_frame_states_return_next(states)));
++    g_assert_true(ll_frame_states_install(states, frame));
++    g_assert_true(ll_reclaim_states_is_installed(states, frame));
++    g_assert_false(ll_frame_states_install(states, frame));
++    /* A full lifecycle must not alter the adjacent 2 MiB child. */
++    g_assert_true(ll_reclaim_states_is_installed(states, frame - HUGE_FRAMES));
++    g_assert_true(ll_reclaim_states_is_installed(states, frame + HUGE_FRAMES));
++    ll_reclaim_states_destroy(states);
++}
++
++static void test_mixed_order10(void)
++{
++    ll_reclaim_states_t *states = ll_reclaim_states_create(TREE_FRAMES);
++    uint64_t first = 2 * HUGE_FRAMES;
++    uint64_t second = first + HUGE_FRAMES;
++
++    /* An order-10 allocation can have only its second child reclaimed. */
++    g_assert_true(ll_frame_states_soft_reclaim(states, second));
++    g_assert_true(ll_reclaim_states_is_installed(states, first));
++    g_assert_true(ll_reclaim_states_is_soft(states, second));
++    g_assert_true(ll_frame_states_install(states, second));
++    g_assert_true(ll_reclaim_states_is_installed(states, first));
++    g_assert_true(ll_reclaim_states_is_installed(states, second));
++    ll_reclaim_states_destroy(states);
++}
++
++static void test_partial_tail(void)
++{
++    ll_reclaim_states_t *states =
++        ll_reclaim_states_create(TREE_FRAMES + HUGE_FRAMES + 17);
++    uint64_t frame = TREE_FRAMES;
++    llfree_result_t res;
++
++    g_assert_true(ll_frame_states_hard_reclaim(states, frame, false));
++    g_assert_false(ll_frame_states_hard_reclaim(states, frame + HUGE_FRAMES,
++                                              false));
++    res = ll_frame_states_return_next(states);
++    g_assert_true(llfree_is_ok(res));
++    g_assert_cmpuint(res.frame, ==, frame);
++    g_assert_false(llfree_is_ok(ll_frame_states_return_next(states)));
++    ll_reclaim_states_destroy(states);
++}
++
++int main(int argc, char **argv)
++{
++    g_test_init(&argc, &argv, NULL);
++    g_test_add_func("/llfree/lifecycle", test_lifecycle);
++    g_test_add_func("/llfree/mixed-order10", test_mixed_order10);
++    g_test_add_func("/llfree/partial-tail", test_partial_tail);
++    return g_test_run();
++}

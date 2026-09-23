@@ -1,0 +1,512 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.schema;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import org.apache.cassandra.auth.AuthKeyspace;
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.cql3.functions.UserFunction;
+import org.apache.cassandra.db.ColumnFamilyStore;
+import org.apache.cassandra.db.Keyspace;
+import org.apache.cassandra.db.Mutation;
+import org.apache.cassandra.db.marshal.UserType;
+import org.apache.cassandra.io.util.DataInputPlus;
+import org.apache.cassandra.io.util.DataOutputPlus;
+import org.apache.cassandra.tcm.Epoch;
+import org.apache.cassandra.tcm.MetadataValue;
+import org.apache.cassandra.tcm.serialization.MetadataSerializer;
+import org.apache.cassandra.tcm.serialization.Version;
+import org.apache.cassandra.tracing.TraceKeyspace;
+import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.utils.Pair;
+
+import static org.apache.cassandra.db.TypeSizes.sizeof;
+
+/**
+ * Immutable snapshot of the current schema along with its version.
+ */
+public class DistributedSchema implements MetadataValue<DistributedSchema>
+{
+    public static final Serializer serializer = new Serializer();
+
+    public static DistributedSchema empty()
+    {
+        return new DistributedSchema(Keyspaces.none(), Epoch.EMPTY);
+    }
+
+    private static ImmutableMap<TableId, TableMetadata> keyspacesToTableMap(Keyspaces keyspaces)
+    {
+        ImmutableMap.Builder<TableId, TableMetadata> builder = ImmutableMap.builder();
+        keyspaces.forEach(ksm -> ksm.tablesAndViews().forEach(tbl -> builder.put(tbl.id, tbl)));
+        return builder.build();
+    }
+
+    private final Keyspaces keyspaces;
+    private final Epoch epoch;
+    private final UUID version;
+    private final Map<String, Keyspace> keyspaceInstances = new HashMap<>();
+    private final transient ImmutableMap<TableId, TableMetadata> tables;
+
+    public DistributedSchema(Keyspaces keyspaces)
+    {
+        this(keyspaces, Epoch.EMPTY);
+    }
+
+    public DistributedSchema(Keyspaces keyspaces, Epoch epoch)
+    {
+        Objects.requireNonNull(keyspaces);
+        this.keyspaces = keyspaces;
+        this.epoch = epoch;
+        this.version = new UUID(0, epoch.getEpoch());
+        this.tables = keyspacesToTableMap(keyspaces);
+        validate();
+    }
+
+    @Override
+    public DistributedSchema withLastModified(Epoch epoch)
+    {
+        return new DistributedSchema(keyspaces, epoch);
+    }
+
+    @Override
+    public Epoch lastModified()
+    {
+        return epoch;
+    }
+
+    public Keyspace getKeyspace(String keyspace)
+    {
+        return keyspaceInstances.get(keyspace);
+    }
+
+    public KeyspaceMetadata getKeyspaceMetadata(String keyspace)
+    {
+        return keyspaces.get(keyspace).get();
+    }
+
+    public Optional<KeyspaceMetadata> maybeGetKeyspaceMetadata(String keyspace)
+    {
+        return keyspaces.get(keyspace);
+    }
+
+    public TableMetadata getTableMetadata(TableId id)
+    {
+        return tables.get(id);
+    }
+
+    public TableMetadata getTableMetadata(String keyspace, String cf)
+    {
+        KeyspaceMetadata ks = keyspaces.getNullable(keyspace);
+        return ks == null ? null : ks.tables.getNullable(cf);
+    }
+
+    public boolean hasAccordKeyspaces()
+    {
+        return keyspaces.stream().anyMatch(ksm -> ksm.tables.stream().anyMatch(TableMetadata::requiresAccordSupport));
+    }
+
+    /**
+     * @deprecated since TCM, used on upgrade from gossip to populate system schema tables with the correct generation
+     */
+    @Deprecated(since = "TCM")
+    public static List<Pair<KeyspaceMetadata, Long>> distributedKeyspacesWithGeneration()
+    {
+        return ImmutableList.of(Pair.create(TraceKeyspace.metadata(), TraceKeyspace.GENERATION),
+                                Pair.create(SystemDistributedKeyspace.metadata(), SystemDistributedKeyspace.GENERATION),
+                                Pair.create(AuthKeyspace.metadata(),AuthKeyspace.GENERATION));
+    }
+
+    public static DistributedSchema fromSystemTables(Keyspaces keyspaces)
+    {
+        Keyspaces kss = Keyspaces.none();
+        for (Pair<KeyspaceMetadata, Long> ksmGen : distributedKeyspacesWithGeneration())
+            kss = kss.with(ksmGen.left);
+        for (KeyspaceMetadata ksm : keyspaces) // on disk keyspaces
+            kss = kss.withAddedOrUpdated(kss.get(ksm.name)
+                                            .map(k -> merged(ksm, k))
+                                            .orElse(ksm));
+        return new DistributedSchema(kss, Epoch.UPGRADE_GOSSIP);
+    }
+
+    /**
+     * merges any tables in `mergeFrom` to `mergeTo` unless they already exist there.
+     *
+     * This method is only called when creating the initial cluster metadata on upgrade
+     *
+     * mergeTo is the on disk schema, mergeFrom is the hard coded KSM
+     * if a table exists in the on disk schema, keep it as-is, otherwise add the hard coded one
+     */
+    private static KeyspaceMetadata merged(KeyspaceMetadata mergeTo, KeyspaceMetadata mergeFrom)
+    {
+        KeyspaceMetadata newKsm = KeyspaceMetadata.create(mergeTo.name,
+                                                          mergeTo.params,
+                                                          mergeTo.tables,
+                                                          mergeTo.views,
+                                                          mergeTo.types,
+                                                          mergeTo.userFunctions);
+        Tables newTables = newKsm.tables;
+        for (TableMetadata metadata : mergeFrom.tables)
+            if (!newTables.containsTable(metadata.id) && newTables.stream().noneMatch(tmd -> tmd.name.equals(metadata.name)))
+                newTables = newTables.with(metadata);
+
+        Views newViews = newKsm.views;
+        for (ViewMetadata view : mergeFrom.views)
+        {
+            if (!newViews.containsView(view.name()))
+                newViews = newViews.with(view);
+        }
+
+        Types newTypes = newKsm.types;
+        for (UserType type : mergeFrom.types)
+            if (!newTypes.containsType(type.name))
+                newTypes = newTypes.with(type);
+
+        UserFunctions newUserFunctions = newKsm.userFunctions;
+        for (UserFunction uf : mergeFrom.userFunctions)
+            if (newUserFunctions.get(uf.name()).isEmpty())
+                newUserFunctions = newUserFunctions.with(uf);
+
+        return newKsm.withSwapped(newTables)
+                     .withSwapped(newViews)
+                     .withSwapped(newTypes)
+                     .withSwapped(newUserFunctions);
+    }
+
+    public void initializeKeyspaceInstances(DistributedSchema prev, boolean loadSSTables)
+    {
+        keyspaceInstances.putAll(prev.keyspaceInstances);
+
+        // If there are keyspaces in schema, but none of them are initialised, we're in first boot. Initialise all.
+        if (!prev.isEmpty() && prev.keyspaceInstances.isEmpty())
+            prev = DistributedSchema.empty();
+
+        Keyspaces.KeyspacesDiff ksDiff = Keyspaces.diff(prev.getKeyspaces(), getKeyspaces());
+
+        SchemaChangeNotifier schemaChangeNotifier = Schema.instance.schemaChangeNotifier();
+        schemaChangeNotifier.notifyPreChanges(new SchemaTransformation.SchemaTransformationResult(prev, this, ksDiff));
+
+        ksDiff.dropped.forEach(metadata -> dropKeyspace(metadata, true));
+        ksDiff.created.forEach(metadata -> keyspaceInstances.put(metadata.name, new Keyspace(Schema.instance, metadata, loadSSTables, DatabaseDescriptor.isClientOrToolInitialized())));
+        ksDiff.altered.forEach(delta -> {
+            boolean initialized = Keyspace.isInitialized();
+
+            Keyspace keyspace = initialized ? keyspaceInstances.get(delta.before.name) : null;
+            if (initialized)
+            {
+                assert keyspace != null : String.format("Keyspace %s is not initialized. Initialized keyspaces: %s.", delta.before.name, keyspaceInstances.keySet());
+                assert delta.before.name.equals(delta.after.name);
+
+                // drop tables and views
+                delta.views.dropped.forEach(v -> dropView(keyspace, v, loadSSTables));
+                delta.tables.dropped.forEach(t -> dropTable(keyspace, t, loadSSTables));
+
+                // add tables and views
+                delta.tables.created.forEach(t -> createTable(keyspace, t, loadSSTables));
+                delta.views.created.forEach(v -> createView(keyspace, v));
+
+                // update tables and views
+                delta.tables.altered.forEach(diff -> alterTable(keyspace, diff.after));
+                delta.views.altered.forEach(diff -> alterView(keyspace, diff.after));
+
+                // deal with all added, and altered views
+                keyspace.viewManager.reload(keyspaces.get(keyspace.getName()).get());
+            }
+        });
+
+        // Avoid system table side effects before initialization, otherwise mismatching schema can block CMS
+        // progress as nodes report disagreement. Also, tooling should not mutate system tables.
+        if (epoch.isEqualOrAfter(Epoch.FIRST) && !DatabaseDescriptor.isClientOrToolInitialized())
+        {
+            Collection<Mutation> mutations = SchemaKeyspace.convertSchemaDiffToMutations(ksDiff, FBUtilities.timestampMicros());
+            SchemaKeyspace.applyChanges(mutations);
+        }
+    }
+
+    public void notifyPostCommit(DistributedSchema prevSchema, boolean loadSSTables)
+    {
+        if (!prevSchema.isEmpty() && prevSchema.keyspaceInstances.isEmpty())
+            prevSchema = DistributedSchema.empty();
+
+        Keyspaces.KeyspacesDiff ksDiff = Keyspaces.diff(prevSchema.getKeyspaces(), getKeyspaces());
+
+        SchemaChangeNotifier schemaChangeNotifier = Schema.instance.schemaChangeNotifier();
+
+        ksDiff.dropped.forEach(metadata -> {
+            schemaChangeNotifier.notifyKeyspaceDropped(metadata, loadSSTables);
+            if (Keyspace.isInitialized())
+            {
+                metadata.views.forEach((tableMetadata) -> SchemaDiagnostics.tableDropped(Schema.instance, tableMetadata.metadata));
+                metadata.tables.forEach((tableMetadata) -> SchemaDiagnostics.tableDropped(Schema.instance, tableMetadata));
+                SchemaDiagnostics.metadataRemoved(Schema.instance, metadata);
+                SchemaDiagnostics.keyspaceDropped(Schema.instance, metadata);
+            }
+        });
+        ksDiff.created.forEach(schemaChangeNotifier::notifyKeyspaceCreated);
+
+        ksDiff.created.forEach(ks -> {
+            if (ks.tables.size() == 0)
+                return;
+
+            boolean initialized = Keyspace.isInitialized();
+            Keyspace keyspace = initialized ? keyspaceInstances.get(ks.name) : null;
+
+            if (keyspace != null)
+            {
+                for (ColumnFamilyStore cfs : keyspace.getColumnFamilyStores())
+                    for (IndexMetadata info : cfs.metadata().indexes)
+                        cfs.indexManager.addIndex(info, true);
+            }
+        });
+
+        ksDiff.altered.forEach(delta -> {
+            boolean initialized = Keyspace.isInitialized();
+            Keyspace keyspace = initialized ? keyspaceInstances.get(delta.before.name) : null;
+            if (initialized)
+            {
+                assert keyspace != null : String.format("Keyspace %s is not initialized. Initialized keyspaces: %s.", delta.before.name, keyspaceInstances.keySet());
+                assert delta.before.name.equals(delta.after.name);
+                schemaChangeNotifier.notifyKeyspaceAltered(delta, loadSSTables);
+
+                // drop tables and views
+                delta.views.dropped.forEach(v -> SchemaDiagnostics.tableDropped(Schema.instance, v.metadata));
+                delta.tables.dropped.forEach(t -> SchemaDiagnostics.tableDropped(Schema.instance, t));
+
+                // add tables and views
+                delta.tables.created.forEach(t -> SchemaDiagnostics.tableCreated(Schema.instance, t));
+
+                delta.tables.created.forEach(t -> {
+                    ColumnFamilyStore cfs = keyspace.getColumnFamilyStore(t.name);
+                    for (IndexMetadata info : cfs.metadata().indexes)
+                        cfs.indexManager.addIndex(info, true);
+                });
+
+                delta.views.created.forEach(v -> SchemaDiagnostics.tableCreated(Schema.instance, v.metadata));
+
+                // update tables and views
+                delta.tables.altered.forEach(diff -> SchemaDiagnostics.tableAltered(Schema.instance, diff.after));
+                delta.views.altered.forEach(diff -> SchemaDiagnostics.tableAltered(Schema.instance, diff.after.metadata));
+            }
+            SchemaDiagnostics.keyspaceAltered(Schema.instance, delta);
+        });
+    }
+
+    public static void maybeRebuildViews(DistributedSchema prev, DistributedSchema current)
+    {
+        Keyspaces.KeyspacesDiff ksDiff = Keyspaces.diff(prev.getKeyspaces(), current.getKeyspaces());
+        if (ksDiff.isEmpty() || ksDiff.altered.isEmpty())
+            return;
+        ksDiff.altered.forEach(delta -> {
+            if (delta.views.isEmpty())
+                return;
+            boolean initialized = Keyspace.isInitialized();
+            Keyspace keyspace = initialized ? current.keyspaceInstances.get(delta.after.name) : null;
+            if (keyspace != null)
+                keyspace.viewManager.buildViews();
+        });
+
+    }
+
+    private void dropView(Keyspace keyspace, ViewMetadata metadata, boolean dropData)
+    {
+        keyspace.viewManager.dropView(metadata.name());
+        dropTable(keyspace, metadata.metadata, dropData);
+    }
+
+    // TODO: handle drops after snapshots
+    private void dropKeyspace(KeyspaceMetadata keyspaceMetadata, boolean dropData)
+    {
+        SchemaDiagnostics.keyspaceDropping(Schema.instance, keyspaceMetadata);
+
+        boolean initialized = Keyspace.isInitialized();
+        Keyspace keyspace = initialized ? Keyspace.open(keyspaceMetadata.name) : null;
+        if (initialized)
+        {
+            if (keyspace == null)
+                return;
+
+            keyspaceMetadata.views.forEach(v -> dropView(keyspace, v, dropData));
+            keyspaceMetadata.tables.forEach(t -> dropTable(keyspace, t, dropData));
+
+            // remove the keyspace from the static instances
+            Keyspace unloadedKeyspace = keyspaceInstances.remove(keyspaceMetadata.name);
+            unloadedKeyspace.unload(true);
+            assert unloadedKeyspace == keyspace;
+
+            Keyspace.writeOrder.awaitNewBarrier();
+        }
+        else
+        {
+            keyspace.unload(true);
+        }
+    }
+    /**
+     *
+     * @param keyspace
+     * @param metadata
+     */
+    private void dropTable(Keyspace keyspace, TableMetadata metadata, boolean dropData)
+    {
+        SchemaDiagnostics.tableDropping(Schema.instance, metadata);
+        keyspace.dropCf(metadata.id, dropData);
+    }
+
+    private void createTable(Keyspace keyspace, TableMetadata table, boolean loadSSTables)
+    {
+        SchemaDiagnostics.tableCreating(Schema.instance, table);
+        keyspace.initCf(table, loadSSTables, DatabaseDescriptor.isClientOrToolInitialized());
+    }
+
+    private void createView(Keyspace keyspace, ViewMetadata view)
+    {
+        SchemaDiagnostics.tableCreating(Schema.instance, view.metadata);
+        keyspace.initCf(view.metadata, true, DatabaseDescriptor.isClientOrToolInitialized());
+    }
+
+    private void alterTable(Keyspace keyspace, TableMetadata updated)
+    {
+        SchemaDiagnostics.tableAltering(Schema.instance, updated);
+        keyspace.getColumnFamilyStore(updated.name).reload(updated);
+    }
+
+    private void alterView(Keyspace keyspace, ViewMetadata updated)
+    {
+        SchemaDiagnostics.tableAltering(Schema.instance, updated.metadata);
+        keyspace.getColumnFamilyStore(updated.name()).reload(updated.metadata);
+    }
+
+    public Keyspaces getKeyspaces()
+    {
+        return keyspaces;
+    }
+
+    public boolean isEmpty()
+    {
+        return epoch.is(Epoch.EMPTY);
+    }
+
+    public UUID getVersion()
+    {
+        return version;
+    }
+
+    /**
+     * Converts the given schema version to a string. Returns {@code unknown}, if {@code version} is {@code null}
+     * or {@code "(empty)"}, if {@code version} refers to an {@link SchemaConstants#emptyVersion} schema.
+     */
+    public static String schemaVersionToString(UUID version)
+    {
+        return version == null
+               ? "unknown"
+               : SchemaConstants.emptyVersion.equals(version)
+                 ? "(empty)"
+                 : version.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DistributedSchema schema = (DistributedSchema) o;
+        return keyspaces.equals(schema.keyspaces) && version.equals(schema.version);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(keyspaces, version);
+    }
+
+    private void validate()
+    {
+        keyspaces.forEach(ksm -> {
+            ksm.tables.forEach(tm -> Preconditions.checkArgument(tm.keyspace.equals(ksm.name), "Table %s metadata points to keyspace %s while defined in keyspace %s", tm.name, tm.keyspace, ksm.name));
+            ksm.views.forEach(vm -> Preconditions.checkArgument(vm.keyspace().equals(ksm.name), "View %s metadata points to keyspace %s while defined in keyspace %s", vm.name(), vm.keyspace(), ksm.name));
+            ksm.types.forEach(ut -> Preconditions.checkArgument(ut.keyspace.equals(ksm.name), "Type %s points to keyspace %s while defined in keyspace %s", ut.name, ut.keyspace, ksm.name));
+            ksm.userFunctions.forEach(f -> Preconditions.checkArgument(f.name().keyspace.equals(ksm.name), "Function %s points to keyspace %s while defined in keyspace %s", f.name().name, f.name().keyspace, ksm.name));
+        });
+    }
+
+    public String conciseToString()
+    {
+        return keyspaces.stream()
+                        .map(ksm -> ksm.name + ": {" +
+                                    ksm.tables.stream()
+                                              .map(t -> t.name)
+                                              .collect(Collectors.joining(","))
+                                    + '}')
+                 .collect(Collectors.joining(","));
+    }
+
+    public static class Serializer implements MetadataSerializer<DistributedSchema>
+    {
+        public void serialize(DistributedSchema t, DataOutputPlus out, Version version) throws IOException
+        {
+            Epoch.serializer.serialize(t.epoch, out, version);
+            out.writeInt(t.keyspaces.size());
+            for (KeyspaceMetadata ksm : t.keyspaces)
+                KeyspaceMetadata.serializer.serialize(ksm, out, version);
+        }
+
+        public DistributedSchema deserialize(DataInputPlus in, Version version) throws IOException
+        {
+            Epoch basedOnEpoch = Epoch.serializer.deserialize(in, version);
+            int ksCount = in.readInt();
+            List<KeyspaceMetadata> ksms = new ArrayList<>(ksCount);
+            for (int i = 0; i < ksCount; i++)
+                ksms.add(KeyspaceMetadata.serializer.deserialize(in, version));
+
+            return new DistributedSchema(Keyspaces.of(ksms.toArray(new KeyspaceMetadata[ksCount])), basedOnEpoch);
+        }
+
+        public long serializedSize(DistributedSchema t, Version version)
+        {
+            long size = Epoch.serializer.serializedSize(t.epoch, version);
+            size += sizeof(t.keyspaces.size());
+            for (KeyspaceMetadata ksm : t.keyspaces)
+                size += KeyspaceMetadata.serializer.serializedSize(ksm, version);
+            return size;
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "DistributedSchema{" +
+               "keyspaces=" + keyspaces +
+               ", epoch=" + epoch +
+               ", version=" + version +
+               ", keyspaceInstances=" + keyspaceInstances +
+               '}';
+    }
+}

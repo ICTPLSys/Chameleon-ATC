@@ -1,0 +1,18 @@
+# c
+build
+compile_commands.json
+
+# misc
+.DS_Store
+memfile
+.vscode
+.devcontainer
+/test/
+.cache/
+
+/results/*
+!results/bench.csv
+!/results/remote_ma/
+!/results/keep/
+!/results/*.ipynb
+!/results/remote.sh

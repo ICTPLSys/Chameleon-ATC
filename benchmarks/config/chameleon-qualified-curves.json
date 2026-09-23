@@ -1,0 +1,4063 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-09-23T08:09:41.758651+00:00",
+  "scope": "Only currently accepted full low/middle/high curves; candidates and failed configurations are in the separate experiment ledger.",
+  "reference_kind": "User-supplied estimated target curves; not measured-baseline SOTA evidence",
+  "units": {
+    "memory": "MiB",
+    "psi": "ppm (10000 ppm = 1%)",
+    "epoch": "microseconds",
+    "hhh_interval": "milliseconds",
+    "sample_period": "events"
+  },
+  "remote_pool_mib": 8192,
+  "applications": {
+    "spark-kmeans": {
+      "vm_memory_mib": 32768,
+      "status": "ACCEPTED",
+      "throughput_interpretation": null,
+      "cpu_affinity_profile": null,
+      "workload_identity": {
+        "initialization_seed": "42",
+        "application_source_sha256": "d590af8bcf6fd46d68d278e3f169ed6545204a9b257d095e09b686edefac94f5",
+        "input_sha256": "f798cbc4a0776a088d56793f8e34d205ed980319d9e8769849b723ac9ff9f03c"
+      },
+      "workload_configuration": {
+        "target_peak_gib": 15,
+        "vcpus": 8,
+        "status": "measured-pass",
+        "args": [
+          "--input",
+          "{inputs}/km-prefix-30m.dat",
+          "--threads",
+          "8",
+          "--partitions",
+          "16",
+          "--driver-memory-mib",
+          "16384"
+        ],
+        "prepare": {
+          "kind": "prefix",
+          "source": "/path/to/local-input",
+          "records": 30000000,
+          "output": "km-prefix-30m.dat"
+        },
+        "previous_measurements": [
+          {
+            "case": "spark-kmeans",
+            "run": "benchmarks/results/chameleon/table2-apps-v1-spark-kmeans-local",
+            "target_peak_gib": 15,
+            "tolerance_percent": 10,
+            "status": "ADJUST_REQUIRED",
+            "observed_peak_gib": 12.19356918334961,
+            "error_percent": -18.709538777669266,
+            "within_target": false,
+            "memory_mib": 14536,
+            "application_check": {
+              "status": "PASS",
+              "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+              "sse": [
+                1.4870345281283597e+18
+              ],
+              "cost": [
+                1.4870345281283594e+18
+              ],
+              "centers": [
+                [
+                  851113.5348786296,
+                  195950.43500708046
+                ],
+                [
+                  1213758.1992277647,
+                  1198519.118586297
+                ],
+                [
+                  166339.96258327767,
+                  108946.47438232598
+                ],
+                [
+                  310575.7172865318,
+                  1170738.516854127
+                ]
+              ]
+            }
+          },
+          {
+            "case": "spark-kmeans",
+            "run": "benchmarks/results/chameleon/table2-retry-v2-spark-kmeans-local",
+            "target_peak_gib": 15,
+            "tolerance_percent": 10,
+            "status": "ADJUST_REQUIRED",
+            "observed_peak_gib": 13.04714584350586,
+            "error_percent": -13.01902770996094,
+            "within_target": false,
+            "memory_mib": 15410,
+            "application_check": {
+              "status": "PASS",
+              "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+              "sse": [
+                3.023193540652358e+18
+              ],
+              "cost": [
+                3.023193540652358e+18
+              ],
+              "centers": [
+                [
+                  936377.5446778309,
+                  265802.45133151644
+                ],
+                [
+                  331371.11791183427,
+                  1223354.132540804
+                ],
+                [
+                  1227543.0311510337,
+                  1243641.9292058398
+                ],
+                [
+                  191815.19234462778,
+                  137967.0315511023
+                ]
+              ]
+            }
+          }
+        ],
+        "measurement": {
+          "case": "spark-kmeans",
+          "run": "benchmarks/results/chameleon/table2-spark-v3-spark-kmeans-local",
+          "target_peak_gib": 15,
+          "tolerance_percent": 10,
+          "status": "PASS",
+          "observed_peak_gib": 14.556190490722656,
+          "error_percent": -2.9587300618489576,
+          "within_target": true,
+          "memory_mib": 16954,
+          "application_check": {
+            "status": "PASS",
+            "scope": "Four finite centers and two same-run cached-data cost scans agree. Driver does not fix initialization seed; no independent exact expected SSE is claimed.",
+            "sse": [
+              3.023265071654475e+18
+            ],
+            "cost": [
+              3.023265071654475e+18
+            ],
+            "centers": [
+              [
+                332252.8853923878,
+                1220348.50245271
+              ],
+              [
+                193455.70349631357,
+                137923.3719269691
+              ],
+              [
+                1227552.4234426941,
+                1245339.9088907826
+              ],
+              [
+                940294.0292303949,
+                266361.5498732994
+              ]
+            ]
+          }
+        }
+      },
+      "all_local": {
+        "policy_enabled": false,
+        "pebs_enabled": true,
+        "hhh_enabled": true,
+        "normalization_protocol": null,
+        "fixed_main_baseline_report": null,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "normalized_point": {
+          "reclaim_percent": 0,
+          "slowdown_percent": 0
+        },
+        "measurements": [
+          {
+            "repeat": 1,
+            "trial_id": "b32768",
+            "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+            "performance": {
+              "runtime_seconds": 30.68,
+              "cost": 30.68,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/spark-kmeans/application/20260922T083822Z/time.txt"
+              ],
+              "spark_initialization_seconds": 16.778,
+              "spark_iterations_seconds": 6.6,
+              "spark_within_set_sse": 3.023192774323582e+18
+            },
+            "raw_reclaim_percent": -0.17855502665042877,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": null,
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases spark-kmeans --vm-memory-mib 32768 --run-mode all-local --sample-seconds 1 --timeout 14400 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --no-cpu-pinning"
+          },
+          {
+            "repeat": 2,
+            "trial_id": "v3r2-b",
+            "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+            "performance": {
+              "runtime_seconds": 30.69,
+              "cost": 30.69,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/spark-kmeans/application/20260922T101935Z/time.txt"
+              ],
+              "spark_initialization_seconds": 16.739,
+              "spark_iterations_seconds": 6.824,
+              "spark_within_set_sse": 3.023192774323582e+18
+            },
+            "raw_reclaim_percent": -0.18691383302211761,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": null,
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases spark-kmeans --vm-memory-mib 32768 --run-mode all-local --sample-seconds 1 --timeout 14400 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --no-cpu-pinning"
+          }
+        ]
+      },
+      "points": [
+        {
+          "role": "low",
+          "candidate_id": "d06",
+          "configuration": {
+            "vm_memory_mib": 32768,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 29164.0,
+            "psi_ppm": 1000,
+            "epoch_us": 100000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 100000
+          },
+          "mean": {
+            "reclaim_percent": 5.51237193020907,
+            "slowdown_percent": 1.189593924695076,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 0.6516780710329018,
+              "max": 1.7275097783572502
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d06",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-d06-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+              "reclaim_percent": 5.519154216303967,
+              "slowdown_percent": 1.7275097783572502,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 1.554142222176302,
+                  "HyperAlloc+Memtis": 0.7844283773618717
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 31.21,
+                "cost": 31.21,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-d06-spark-kmeans-on/spark-kmeans/application/20260922T101402Z/time.txt"
+                ],
+                "spark_initialization_seconds": 17.032,
+                "spark_iterations_seconds": 6.531,
+                "spark_within_set_sse": 3.0231927743235825e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 551686144,
+                  "read_bytes": 346107904,
+                  "write_completions": 296,
+                  "read_completions": 184,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 201,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 372,
+                  "low_epochs": 303,
+                  "high_epochs": 69,
+                  "psi_some_ns": 137101925,
+                  "psi_full_ns": 92713915,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v3r2-d06",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d06-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+              "reclaim_percent": 5.505589644114172,
+              "slowdown_percent": 0.6516780710329018,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 2.6221016331405016,
+                  "HyperAlloc+Memtis": 1.8521096979627383
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 30.89,
+                "cost": 30.89,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d06-spark-kmeans-on/spark-kmeans/application/20260922T102307Z/time.txt"
+                ],
+                "spark_initialization_seconds": 16.96,
+                "spark_iterations_seconds": 6.814,
+                "spark_within_set_sse": 3.0231927743235825e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 581021696,
+                  "read_bytes": 299913216,
+                  "write_completions": 304,
+                  "read_completions": 148,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 120,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 371,
+                  "low_epochs": 309,
+                  "high_epochs": 62,
+                  "psi_some_ns": 157521573,
+                  "psi_full_ns": 136499402,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases spark-kmeans --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 300 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 1000 --epoch-us 100000 --cold-folios 1 --minimum-local-mib 29164 --no-cpu-pinning"
+        },
+        {
+          "role": "middle",
+          "candidate_id": "d07",
+          "configuration": {
+            "vm_memory_mib": 32768,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 24840.0,
+            "psi_ppm": 1000,
+            "epoch_us": 20000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 20000
+          },
+          "mean": {
+            "reclaim_percent": 22.40820514547216,
+            "slowdown_percent": 9.80893916241099,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 7.268578878748366,
+              "max": 12.349299446073614
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d07",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-d07-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-s32768-c131072-h15000-spark-kmeans-local/report.json",
+              "reclaim_percent": 22.351887491014267,
+              "slowdown_percent": 7.268578878748366,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 14.624063608671607,
+                  "HyperAlloc+Memtis": 9.953686110468754
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 32.91,
+                "cost": 32.91,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-d07-spark-kmeans-on/spark-kmeans/application/20260922T101719Z/time.txt"
+                ],
+                "spark_initialization_seconds": 18.24,
+                "spark_iterations_seconds": 6.667,
+                "spark_within_set_sse": 3.023192774323582e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2420961280,
+                  "read_bytes": 1799475200,
+                  "write_completions": 1361,
+                  "read_completions": 887,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 825,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 1862,
+                  "low_epochs": 1550,
+                  "high_epochs": 312,
+                  "psi_some_ns": 755323294,
+                  "psi_full_ns": 645588678,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v3r2-d07",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d07-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-s32768-c131072-h15000-spark-kmeans-local/report.json",
+              "reclaim_percent": 22.46452279993005,
+              "slowdown_percent": 12.349299446073614,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 9.701032473828457,
+                  "HyperAlloc+Memtis": 5.008127913842449
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 34.48,
+                "cost": 34.48,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d07-spark-kmeans-on/spark-kmeans/application/20260922T102628Z/time.txt"
+                ],
+                "spark_initialization_seconds": 18.773,
+                "spark_iterations_seconds": 7.648,
+                "spark_within_set_sse": 3.0231927743235825e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2156650496,
+                  "read_bytes": 1392623616,
+                  "write_completions": 1218,
+                  "read_completions": 692,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 666,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 1926,
+                  "low_epochs": 1673,
+                  "high_epochs": 253,
+                  "psi_some_ns": 530569346,
+                  "psi_full_ns": 409160655,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases spark-kmeans --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 300 --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 1000 --epoch-us 20000 --cold-folios 1 --minimum-local-mib 24840 --no-cpu-pinning"
+        },
+        {
+          "role": "high",
+          "candidate_id": "d01",
+          "configuration": {
+            "vm_memory_mib": 32768,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 21300.0,
+            "psi_ppm": 1000,
+            "epoch_us": 10000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 34.92416542091649,
+            "slowdown_percent": 10.802360569993152,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 4.889178617992185,
+              "max": 16.71554252199412
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d01",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-d01-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json",
+              "reclaim_percent": 34.78077377591814,
+              "slowdown_percent": 4.889178617992185,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 39.6723689338441,
+                  "HyperAlloc+Memtis": 28.60390466829321
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 32.18,
+                "cost": 32.18,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-d01-spark-kmeans-on/spark-kmeans/application/20260922T084129Z/time.txt"
+                ],
+                "spark_initialization_seconds": 17.234,
+                "spark_iterations_seconds": 6.653,
+                "spark_within_set_sse": 3.023192774323582e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2092220416,
+                  "read_bytes": 1219555328,
+                  "write_completions": 1329,
+                  "read_completions": 852,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 891,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 3687,
+                  "low_epochs": 3359,
+                  "high_epochs": 328,
+                  "psi_some_ns": 654887240,
+                  "psi_full_ns": 580666058,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v3r2-d01",
+              "report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d01-spark-kmeans-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-b-spark-kmeans-local/report.json",
+              "reclaim_percent": 35.06755706591483,
+              "slowdown_percent": 16.71554252199412,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 28.419571609835547,
+                  "HyperAlloc+Memtis": 17.179037370286647
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 35.82,
+                "cost": 35.82,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-spark-kmeans-v3r2-d01-spark-kmeans-on/spark-kmeans/application/20260922T111951Z/time.txt"
+                ],
+                "spark_initialization_seconds": 19.28,
+                "spark_iterations_seconds": 7.924,
+                "spark_within_set_sse": 3.0231927743235825e+18
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2086080512,
+                  "read_bytes": 1356034048,
+                  "write_completions": 1363,
+                  "read_completions": 957,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 972,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 4107,
+                  "low_epochs": 3725,
+                  "high_epochs": 382,
+                  "psi_some_ns": 1002803305,
+                  "psi_full_ns": 913984207,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases spark-kmeans --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 300 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 1000 --epoch-us 10000 --cold-folios 1 --minimum-local-mib 21300 --no-cpu-pinning"
+        }
+      ],
+      "qualification": {
+        "aggregate_check": {
+          "status": "PASS",
+          "trend_criterion": "two-repeat-mean-with-observed-variation-v1",
+          "mean_curve_check": {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "mean:d06",
+              "mean:d07",
+              "mean:d01"
+            ],
+            "reference_tolerance_pp": 0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 15.4,
+              "middle_min_percent": 15.4,
+              "middle_max_percent": 30.8,
+              "high_min_percent": 33.0
+            },
+            "trend_assessment": "overall_increase"
+          },
+          "required_repeats": 2,
+          "includes_all_local_origin": true,
+          "max_mean_reversal_pp": 1.0,
+          "reference_tolerance_pp": 1.0,
+          "repeat_checks": [
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "d06",
+                "d07",
+                "d01"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 15.4,
+                "middle_min_percent": 15.4,
+                "middle_max_percent": 30.8,
+                "high_min_percent": 33.0
+              },
+              "trend_assessment": "deferred_to_repeat_mean"
+            },
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "v3r2-d06",
+                "v3r2-d07",
+                "v3r2-d01"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 15.4,
+                "middle_min_percent": 15.4,
+                "middle_max_percent": 30.8,
+                "high_min_percent": 33.0
+              },
+              "trend_assessment": "deferred_to_repeat_mean"
+            }
+          ],
+          "mean_points": [
+            {
+              "trial_id": "mean:d06",
+              "reclaim_percent": 5.51237193020907,
+              "parameters": {
+                "epoch_us": 100000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 30580670464,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 3779067904,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 1.189593924695076
+            },
+            {
+              "trial_id": "mean:d07",
+              "reclaim_percent": 22.40820514547216,
+              "parameters": {
+                "epoch_us": 20000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 26046627840,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 8313110528,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 9.80893916241099
+            },
+            {
+              "trial_id": "mean:d01",
+              "reclaim_percent": 34.92416542091649,
+              "parameters": {
+                "epoch_us": 10000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 22334668800,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 12025069568,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 10.802360569993152
+            }
+          ],
+          "observed_ranges": [
+            {
+              "slowdown_percent": {
+                "min": 0.6516780710329018,
+                "max": 1.7275097783572502
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 7.268578878748366,
+                "max": 12.349299446073614
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 4.889178617992185,
+                "max": 16.71554252199412
+              }
+            }
+          ],
+          "adjacent_mean_reversals": [],
+          "scope": "Arithmetic mean of all 2 repeats for each frozen configuration; observed min/max are not confidence intervals; raw points are never sorted by slowdown or changed",
+          "overall_trend_required": true
+        },
+        "repeat_checks": [
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "d06",
+              "d07",
+              "d01"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 15.4,
+              "middle_min_percent": 15.4,
+              "middle_max_percent": 30.8,
+              "high_min_percent": 33.0
+            },
+            "trend_assessment": "deferred_to_repeat_mean"
+          },
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "v3r2-d06",
+              "v3r2-d07",
+              "v3r2-d01"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 15.4,
+              "middle_min_percent": 15.4,
+              "middle_max_percent": 30.8,
+              "high_min_percent": 33.0
+            },
+            "trend_assessment": "deferred_to_repeat_mean"
+          }
+        ],
+        "measurement_basis": "Initial measured configuration plus frozen verification; not two additional post-search repeats",
+        "verification_reuse": null
+      }
+    },
+    "xsbench": {
+      "vm_memory_mib": 81920,
+      "status": "ACCEPTED",
+      "throughput_interpretation": null,
+      "cpu_affinity_profile": null,
+      "workload_identity": null,
+      "workload_configuration": {
+        "target_peak_gib": 50,
+        "vcpus": 4,
+        "status": "measured-pass",
+        "args": [
+          "--skip-build",
+          "--gridpoints",
+          "102400",
+          "--lookups",
+          "17000000",
+          "--threads",
+          "4",
+          "--expected-checksum",
+          "969477"
+        ],
+        "checksum_reference": {
+          "grid": "nuclide",
+          "gridpoints": 102400,
+          "lookups": 17000000,
+          "kernel": 0,
+          "checksum": 969477,
+          "evidence": "benchmarks/results/chameleon/table2-calibration/xsbench-nuclide-reference.log"
+        },
+        "measurement": {
+          "case": "xsbench",
+          "run": "benchmarks/results/chameleon/table2-apps-v1-xsbench-local",
+          "target_peak_gib": 50,
+          "tolerance_percent": 10,
+          "status": "PASS",
+          "observed_peak_gib": 49.97422790527344,
+          "error_percent": -0.051544189453123224,
+          "within_target": true,
+          "memory_mib": 53222,
+          "application_check": {
+            "status": "PASS",
+            "scope": "Profile reference checksum",
+            "expected": "969477",
+            "checksum": [
+              "969477"
+            ]
+          }
+        }
+      },
+      "all_local": {
+        "policy_enabled": false,
+        "pebs_enabled": true,
+        "hhh_enabled": true,
+        "normalization_protocol": null,
+        "fixed_main_baseline_report": null,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "normalized_point": {
+          "reclaim_percent": 0,
+          "slowdown_percent": 0
+        },
+        "measurements": [
+          {
+            "repeat": 1,
+            "trial_id": "b81920",
+            "report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+            "performance": {
+              "runtime_seconds": 70.27,
+              "cost": 70.27,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/xsbench/application/20260922T100019Z/time.txt"
+              ]
+            },
+            "raw_reclaim_percent": -0.07757107416788145,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": null,
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases xsbench --vm-memory-mib 81920 --run-mode all-local --sample-seconds 1 --timeout 14400 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --no-cpu-pinning"
+          },
+          {
+            "repeat": 2,
+            "trial_id": "v1r2-b",
+            "report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+            "performance": {
+              "runtime_seconds": 69.86,
+              "cost": 69.86,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/xsbench/application/20260922T115258Z/time.txt"
+              ]
+            },
+            "raw_reclaim_percent": -0.0753523685314006,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": null,
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases xsbench --vm-memory-mib 81920 --run-mode all-local --sample-seconds 1 --timeout 14400 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --no-cpu-pinning"
+          }
+        ]
+      },
+      "points": [
+        {
+          "role": "low",
+          "candidate_id": "d07",
+          "configuration": {
+            "vm_memory_mib": 81920,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 74548.0,
+            "psi_ppm": 1000,
+            "epoch_us": 100000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 100000
+          },
+          "mean": {
+            "reclaim_percent": 7.206209040524669,
+            "slowdown_percent": 2.5497232444926077,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 1.8357762914472886,
+              "max": 3.2636701975379268
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d07",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-d07-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+              "reclaim_percent": 7.211040028354587,
+              "slowdown_percent": 1.8357762914472886,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 12.893835300940012,
+                  "HyperAlloc+Memtis": 2.616543732856643
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 71.56,
+                "cost": 71.56,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-d07-xsbench-on/xsbench/application/20260922T123148Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 1338019840,
+                  "read_bytes": 295698432,
+                  "write_completions": 647,
+                  "read_completions": 141,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 115,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 683,
+                  "low_epochs": 651,
+                  "high_epochs": 32,
+                  "psi_some_ns": 363592868,
+                  "psi_full_ns": 361776633,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v3r2-d07",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-v3r2-d07-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+              "reclaim_percent": 7.201378052694752,
+              "slowdown_percent": 3.2636701975379268,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 11.43813714834625,
+                  "HyperAlloc+Memtis": 1.180368133343289
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 72.14,
+                "cost": 72.14,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-v3r2-d07-xsbench-on/xsbench/application/20260922T123958Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 1354780672,
+                  "read_bytes": 276828160,
+                  "write_completions": 651,
+                  "read_completions": 133,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 106,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 687,
+                  "low_epochs": 658,
+                  "high_epochs": 29,
+                  "psi_some_ns": 680095597,
+                  "psi_full_ns": 678521909,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": {
+                "baseline": "v1r2-b",
+                "trial_ids_by_candidate": {
+                  "d04": "v1r2-d04",
+                  "d05": "v1r2-d05"
+                },
+                "scope": "Continue an existing verification baseline group; reused observations count once, with original trial IDs. Not a new independent repeat."
+              }
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases xsbench --vm-memory-mib 81920 --run-mode chameleon --sample-seconds 1 --timeout 334 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 1000 --epoch-us 100000 --cold-folios 1 --minimum-local-mib 74548 --no-cpu-pinning"
+        },
+        {
+          "role": "middle",
+          "candidate_id": "d04",
+          "configuration": {
+            "vm_memory_mib": 81920,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 68076.0,
+            "psi_ppm": 1000,
+            "epoch_us": 20000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 20000
+          },
+          "mean": {
+            "reclaim_percent": 16.64477254523605,
+            "slowdown_percent": 8.907637185774508,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 8.353493667283352,
+              "max": 9.461780704265665
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d04",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-d04-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+              "reclaim_percent": 16.646159437836193,
+              "slowdown_percent": 8.353493667283352,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 32.14395807325253,
+                  "HyperAlloc+Memtis": 7.615745489470937
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 76.14,
+                "cost": 76.14,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-d04-xsbench-on/xsbench/application/20260922T114046Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2493607936,
+                  "read_bytes": 1170231296,
+                  "write_completions": 1212,
+                  "read_completions": 563,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 437,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 3544,
+                  "low_epochs": 3335,
+                  "high_epochs": 209,
+                  "psi_some_ns": 2823471832,
+                  "psi_full_ns": 2814127441,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d04",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-d04-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+              "reclaim_percent": 16.64338565263591,
+              "slowdown_percent": 9.461780704265665,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 31.02781197820275,
+                  "HyperAlloc+Memtis": 6.5032977746882
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 76.47,
+                "cost": 76.47,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-v1r2-d04-xsbench-on/xsbench/application/20260922T120507Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 2487312384,
+                  "read_bytes": 1145069568,
+                  "write_completions": 1208,
+                  "read_completions": 552,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 434,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 3553,
+                  "low_epochs": 3353,
+                  "high_epochs": 200,
+                  "psi_some_ns": 2493259937,
+                  "psi_full_ns": 2490570584,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": {
+                "baseline": "v1r2-b",
+                "trial_ids_by_candidate": {
+                  "d04": "v1r2-d04",
+                  "d05": "v1r2-d05"
+                },
+                "scope": "Continue an existing verification baseline group; reused observations count once, with original trial IDs. Not a new independent repeat."
+              }
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases xsbench --vm-memory-mib 81920 --run-mode chameleon --sample-seconds 1 --timeout 334 --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 1000 --epoch-us 20000 --cold-folios 1 --minimum-local-mib 68076 --no-cpu-pinning"
+        },
+        {
+          "role": "high",
+          "candidate_id": "d05",
+          "configuration": {
+            "vm_memory_mib": 81920,
+            "cpu_affinity_profile": null,
+            "minimum_local_mib": 61686.0,
+            "psi_ppm": 3000,
+            "epoch_us": 10000,
+            "cold_folios": 2,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 25.23803200040544,
+            "slowdown_percent": 24.513266505362274,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 24.40586309947348,
+              "max": 24.62066991125107
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d05",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-d05-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-s16384-c131072-h15000-xsbench-local/report.json",
+              "reclaim_percent": 25.22719308308192,
+              "slowdown_percent": 24.40586309947348,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 41.27571614977229,
+                  "HyperAlloc+Memtis": 6.048523066690365
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 87.42,
+                "cost": 87.42,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-d05-xsbench-on/xsbench/application/20260922T114923Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 7086448640,
+                  "read_bytes": 6383243264,
+                  "write_completions": 4443,
+                  "read_completions": 3947,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 1934,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 7975,
+                  "low_epochs": 6571,
+                  "high_epochs": 1404,
+                  "psi_some_ns": 7791632961,
+                  "psi_full_ns": 7633639616,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d05",
+              "report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-d05-xsbench-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-v1r2-b-xsbench-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-xsbench-b81920-s16384-c131072-h15000-xsbench-local/report.json",
+              "reclaim_percent": 25.24887091772896,
+              "slowdown_percent": 24.62066991125107,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 41.12594284193581,
+                  "HyperAlloc+Memtis": 5.877071924206852
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 87.06,
+                "cost": 87.06,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-xsbench-v1r2-d05-xsbench-on/xsbench/application/20260922T121106Z/time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 7163645952,
+                  "read_bytes": 6536282112,
+                  "write_completions": 4383,
+                  "read_completions": 4007,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 1932,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 7932,
+                  "low_epochs": 6517,
+                  "high_epochs": 1415,
+                  "psi_some_ns": 7267978204,
+                  "psi_full_ns": 7102264983,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": null,
+              "per_repeat_normalization": null,
+              "fixed_normalization_baseline_id": null,
+              "per_repeat_baseline_id": null,
+              "verification_reuse": {
+                "baseline": "v1r2-b",
+                "trial_ids_by_candidate": {
+                  "d04": "v1r2-d04",
+                  "d05": "v1r2-d05"
+                },
+                "scope": "Continue an existing verification baseline group; reused observations count once, with original trial IDs. Not a new independent repeat."
+              }
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases xsbench --vm-memory-mib 81920 --run-mode chameleon --sample-seconds 1 --timeout 334 --all-local-tracking --sample-period 16384 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 2048 --psi-ppm 3000 --epoch-us 10000 --cold-folios 2 --minimum-local-mib 61686 --no-cpu-pinning"
+        }
+      ],
+      "qualification": {
+        "aggregate_check": {
+          "status": "PASS",
+          "trend_criterion": "two-repeat-mean-with-observed-variation-v1",
+          "mean_curve_check": {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "mean:d07",
+              "mean:d04",
+              "mean:d05"
+            ],
+            "reference_tolerance_pp": 0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 9.1,
+              "middle_min_percent": 9.1,
+              "middle_max_percent": 18.2,
+              "high_min_percent": 19.5
+            },
+            "trend_assessment": "overall_increase"
+          },
+          "required_repeats": 2,
+          "includes_all_local_origin": true,
+          "max_mean_reversal_pp": 1.0,
+          "reference_tolerance_pp": 1.0,
+          "repeat_checks": [
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "d07",
+                "d04",
+                "d05"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 9.1,
+                "middle_min_percent": 9.1,
+                "middle_max_percent": 18.2,
+                "high_min_percent": 19.5
+              },
+              "trend_assessment": "deferred_to_repeat_mean"
+            },
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "v3r2-d07",
+                "v1r2-d04",
+                "v1r2-d05"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0.11280314609599662,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 9.1,
+                "middle_min_percent": 9.1,
+                "middle_max_percent": 18.2,
+                "high_min_percent": 19.5
+              },
+              "trend_assessment": "deferred_to_repeat_mean"
+            }
+          ],
+          "mean_points": [
+            {
+              "trial_id": "mean:d07",
+              "reclaim_percent": 7.206209040524669,
+              "parameters": {
+                "epoch_us": 100000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 78169243648,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 7730102272,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 2.5497232444926077
+            },
+            {
+              "trial_id": "mean:d04",
+              "reclaim_percent": 16.64477254523605,
+              "parameters": {
+                "epoch_us": 20000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 71382859776,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 14516486144,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 8.907637185774508
+            },
+            {
+              "trial_id": "mean:d05",
+              "reclaim_percent": 25.23803200040544,
+              "parameters": {
+                "epoch_us": 10000,
+                "psi_ppm": 3000,
+                "cold_folios": 2,
+                "minimum_local_bytes": 64682459136,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 21216886784,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 24.513266505362274
+            }
+          ],
+          "observed_ranges": [
+            {
+              "slowdown_percent": {
+                "min": 1.8357762914472886,
+                "max": 3.2636701975379268
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 8.353493667283352,
+                "max": 9.461780704265665
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 24.40586309947348,
+                "max": 24.62066991125107
+              }
+            }
+          ],
+          "adjacent_mean_reversals": [],
+          "scope": "Arithmetic mean of all 2 repeats for each frozen configuration; observed min/max are not confidence intervals; raw points are never sorted by slowdown or changed",
+          "overall_trend_required": true
+        },
+        "repeat_checks": [
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "d07",
+              "d04",
+              "d05"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 9.1,
+              "middle_min_percent": 9.1,
+              "middle_max_percent": 18.2,
+              "high_min_percent": 19.5
+            },
+            "trend_assessment": "deferred_to_repeat_mean"
+          },
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "v3r2-d07",
+              "v1r2-d04",
+              "v1r2-d05"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0.11280314609599662,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 9.1,
+              "middle_min_percent": 9.1,
+              "middle_max_percent": 18.2,
+              "high_min_percent": 19.5
+            },
+            "trend_assessment": "deferred_to_repeat_mean"
+          }
+        ],
+        "measurement_basis": "Initial measured configuration plus frozen verification; not two additional post-search repeats",
+        "verification_reuse": {
+          "baseline": "v1r2-b",
+          "trial_ids_by_candidate": {
+            "d04": "v1r2-d04",
+            "d05": "v1r2-d05"
+          },
+          "scope": "Continue an existing verification baseline group; reused observations count once, with original trial IDs. Not a new independent repeat."
+        }
+      }
+    },
+    "memcached": {
+      "vm_memory_mib": 73728,
+      "status": "ACCEPTED",
+      "throughput_interpretation": "User-approved near-flat inverse-goodput curve at fixed offered load; not a maximum service-capacity measurement. P95 trend remains required.",
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "qemu_service_cpus": [
+          12,
+          13
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "workload_identity": null,
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 12,
+        "status": "measured-pass",
+        "args": [
+          "--memory-mib",
+          "32768",
+          "--server-threads",
+          "12",
+          "--runtime",
+          "120",
+          "--rampup",
+          "2",
+          "--mpps",
+          "0.01",
+          "--warmup-keys",
+          "{inputs}/cachelib-8m.keys"
+        ],
+        "note": "Warm cache using 8M distinct real SET keys padded identically to trace replay; same 4096-byte values. Warmup included in measurement window.",
+        "prepare": {
+          "kind": "cachelib-keys",
+          "source": "benchmarks/dataset/cachelib-kvcache-202206",
+          "records": 8000000,
+          "output": "cachelib-8m.keys"
+        },
+        "measurement": {
+          "case": "memcached",
+          "run": "benchmarks/results/chameleon/table2-apps-v1-memcached-local",
+          "target_peak_gib": 32,
+          "tolerance_percent": 10,
+          "status": "PASS",
+          "observed_peak_gib": 32.07343292236328,
+          "error_percent": 0.2294778823852539,
+          "within_target": true,
+          "memory_mib": 34892,
+          "application_check": {
+            "status": "PASS",
+            "scope": "Generator validity/completion; preserves miss, timeout and latency counters",
+            "generator_rows": [
+              {
+                "sample": "1",
+                "target_mpps": "0.010000",
+                "workers": "8",
+                "producer_shards": "2",
+                "load_valid": "1",
+                "invalid_reason": "none",
+                "schedule_complete": "1",
+                "measured_seconds": "108.000000",
+                "producer_wall_seconds": "121.980108",
+                "sample_wall_seconds": "123.001090",
+                "actual_tx_mops": "0.009989",
+                "goodput_mops": "0.009989",
+                "admission_rate": "0.998199",
+                "response_rate": "1.000000",
+                "end_to_end_rate": "0.998199",
+                "scheduled": "1080774",
+                "producer_late": "0",
+                "sent": "1078828",
+                "completed": "1078828",
+                "get_hit": "594547",
+                "get_miss": "357237",
+                "set_success": "120979",
+                "delete_success": "624",
+                "delete_miss": "5441",
+                "server_error": "0",
+                "worker_late": "1946",
+                "queue_full": "0",
+                "no_slot": "0",
+                "send_error": "0",
+                "stopped_at_deadline": "0",
+                "timeout": "0",
+                "outstanding": "0",
+                "socket_receive_drops_total_sample": "0",
+                "rx_handoff_drops_total_sample": "0",
+                "affinity_repairs_total_sample": "0",
+                "host_udp_rcvbuf_errors_delta_total_sample": "0",
+                "maximum_queue_depth_total_sample": "52",
+                "maximum_rx_queue_depth_total_sample": "34",
+                "maximum_producer_lag_us_total_sample": "0.000000",
+                "malformed_fragment_total_sample": "0",
+                "duplicate_fragment_total_sample": "0",
+                "stale_fragment_total_sample": "0",
+                "multi_fragment_response": "594547",
+                "latency_samples": "1078828",
+                "latency_out_of_range": "0",
+                "completed_p50_us": "113.727000",
+                "completed_p90_us": "205.183000",
+                "completed_p99_us": "1521.663000",
+                "completed_p99.9_us": "3164.159000",
+                "completed_p99.99_us": "4431.871000",
+                "completed_mean_us": "170.769824",
+                "completed_max_us": "6524.927000",
+                "offered_p50_us": "113.791000",
+                "offered_p90_us": "206.975000",
+                "offered_p99_us": "1647.615000",
+                "offered_p99.9_us": "NA",
+                "offered_p99.99_us": "NA"
+              }
+            ]
+          }
+        }
+      },
+      "all_local": {
+        "policy_enabled": false,
+        "pebs_enabled": true,
+        "hhh_enabled": true,
+        "normalization_protocol": "fixed-first-capacity-all-local-v1",
+        "fixed_main_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "normalized_point": {
+          "reclaim_percent": 0,
+          "slowdown_percent": 0
+        },
+        "measurements": [
+          {
+            "repeat": 1,
+            "trial_id": "b73728-pin2",
+            "report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+            "performance": {
+              "runtime_seconds": null,
+              "cost": 100.1001001001001,
+              "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+              "throughput_ops": 9990.0,
+              "mean_latency_us": 195.004476,
+              "p95_us": 335.359,
+              "p99_us": 1278.975,
+              "load_valid": "1",
+              "schedule_complete": "1"
+            },
+            "raw_reclaim_percent": -0.08518250557829621,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "guest_application_affinity": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "qemu_service_cpus": [
+                12,
+                13
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases memcached --vm-memory-mib 73728 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+          },
+          {
+            "repeat": 2,
+            "trial_id": "v1r2-b",
+            "report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-b-memcached-local/report.json",
+            "performance": {
+              "runtime_seconds": null,
+              "cost": 100.13016921998599,
+              "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+              "throughput_ops": 9987.0,
+              "mean_latency_us": 191.026211,
+              "p95_us": 305.663,
+              "p99_us": 1239.039,
+              "load_valid": "1",
+              "schedule_complete": "1"
+            },
+            "raw_reclaim_percent": -0.08568471228636021,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "guest_application_affinity": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "qemu_service_cpus": [
+                12,
+                13
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases memcached --vm-memory-mib 73728 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+          }
+        ]
+      },
+      "points": [
+        {
+          "role": "low",
+          "candidate_id": "d07",
+          "configuration": {
+            "vm_memory_mib": 73728,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "qemu_service_cpus": [
+                12,
+                13
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            "minimum_local_mib": 67830.0,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 7.913718674999249,
+            "slowdown_percent": 0.030043062391171826,
+            "p95_slowdown_percent": 3.473292799656491
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 0.010011012113331219,
+              "max": 0.050075112669012434
+            },
+            "p95_slowdown_percent": {
+              "min": 2.977108113991278,
+              "max": 3.969477485321704
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d07",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-d07-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "reclaim_percent": 7.913609832322521,
+              "slowdown_percent": 0.010011012113331219,
+              "p95_slowdown_percent": 2.977108113991278,
+              "p99_slowdown_percent": 8.48679606716316,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 5.765787008447525,
+                  "HyperAlloc+Memtis": 2.971054225569331
+                },
+                "fig8": {
+                  "HyperAlloc": 8.26738958418926,
+                  "HyperAlloc+Memtis": 1.0624187686344868
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.11012113324658,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9989.0,
+                "mean_latency_us": 199.642728,
+                "p95_us": 345.343,
+                "p99_us": 1387.519,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 635,
+                  "low_epochs": 635,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+                "slowdown_percent": 0.010011012113331219,
+                "p95_slowdown_percent": 2.977108113991278,
+                "p99_slowdown_percent": 8.48679606716316,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 5.765787008447525,
+                    "HyperAlloc+Memtis": 2.971054225569331
+                  },
+                  "fig8": {
+                    "HyperAlloc": 8.26738958418926,
+                    "HyperAlloc+Memtis": 1.0624187686344868
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.0,
+                "reclaim_over_matched_tracking_percent": 0.010011012113331219,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.1001001001001,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9990.0,
+                  "mean_latency_us": 195.004476,
+                  "p95_us": 335.359,
+                  "p99_us": 1278.975,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "b73728-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d07",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-d07-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-b-memcached-local/report.json",
+              "reclaim_percent": 7.913827517675975,
+              "slowdown_percent": 0.050075112669012434,
+              "p95_slowdown_percent": 3.969477485321704,
+              "p99_slowdown_percent": 8.887116636368964,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 5.725981288133332,
+                  "HyperAlloc+Memtis": 2.9310789761783247
+                },
+                "fig8": {
+                  "HyperAlloc": 7.2754120464950525,
+                  "HyperAlloc+Memtis": 0.07020177705147823
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.150225338007,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9985.0,
+                "mean_latency_us": 199.714388,
+                "p95_us": 348.671,
+                "p99_us": 1392.639,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 635,
+                  "low_epochs": 635,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-b-memcached-local/report.json",
+                "slowdown_percent": 0.02003004506758721,
+                "p95_slowdown_percent": 14.070397791031297,
+                "p99_slowdown_percent": 12.396704219964017,
+                "reference_status": "FAIL",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 5.7560263557347575,
+                    "HyperAlloc+Memtis": 2.96112404377975
+                  },
+                  "fig8": {
+                    "HyperAlloc": -2.8255082592145406,
+                    "HyperAlloc+Memtis": -10.030718528658115
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.0,
+                "reclaim_over_matched_tracking_percent": 0.02003004506758721,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.13016921998599,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9987.0,
+                  "mean_latency_us": 191.026211,
+                  "p95_us": 305.663,
+                  "p99_us": 1239.039,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases memcached --vm-memory-mib 73728 --run-mode chameleon --sample-seconds 1 --timeout 879 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 400000 --cold-folios 1 --minimum-local-mib 67830"
+        },
+        {
+          "role": "middle",
+          "candidate_id": "d08",
+          "configuration": {
+            "vm_memory_mib": 73728,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "qemu_service_cpus": [
+                12,
+                13
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            "minimum_local_mib": 58394.0,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 20.712379268499497,
+            "slowdown_percent": 0.0050055060566656095,
+            "p95_slowdown_percent": 4.312989960013002
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 0.0,
+              "max": 0.010011012113331219
+            },
+            "p95_slowdown_percent": {
+              "min": 2.4427553755825837,
+              "max": 6.183224544443422
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d08",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-d08-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-s32768-c131072-h10000-memcached-local/report.json",
+              "reclaim_percent": 20.711760398267597,
+              "slowdown_percent": 0.0,
+              "p95_slowdown_percent": 6.183224544443422,
+              "p99_slowdown_percent": 12.570065873062418,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 23.738816637228155,
+                  "HyperAlloc+Memtis": 11.87243798535457
+                },
+                "fig8": {
+                  "HyperAlloc": 33.95205665035937,
+                  "HyperAlloc+Memtis": 12.88441605295797
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.1001001001001,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9990.0,
+                "mean_latency_us": 201.060434,
+                "p95_us": 356.095,
+                "p99_us": 1439.743,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 634,
+                  "low_epochs": 634,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+                "slowdown_percent": 0.0,
+                "p95_slowdown_percent": 6.183224544443422,
+                "p99_slowdown_percent": 12.570065873062418,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 23.738816637228155,
+                    "HyperAlloc+Memtis": 11.87243798535457
+                  },
+                  "fig8": {
+                    "HyperAlloc": 33.95205665035937,
+                    "HyperAlloc+Memtis": 12.88441605295797
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": -0.04002401440863501,
+                "reclaim_over_matched_tracking_percent": 0.0400400400400347,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.1001001001001,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9990.0,
+                  "mean_latency_us": 195.004476,
+                  "p95_us": 335.359,
+                  "p99_us": 1278.975,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "b73728-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d08",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-d08-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-s32768-c131072-h10000-memcached-local/report.json",
+              "reclaim_percent": 20.712998138731397,
+              "slowdown_percent": 0.010011012113331219,
+              "p95_slowdown_percent": 2.4427553755825837,
+              "p99_slowdown_percent": 5.684552082722516,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 23.730786009856903,
+                  "HyperAlloc+Memtis": 11.86351033469752
+                },
+                "fig8": {
+                  "HyperAlloc": 37.69623904061161,
+                  "HyperAlloc+Memtis": 16.62674183251451
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.11012113324658,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9989.0,
+                "mean_latency_us": 198.276173,
+                "p95_us": 343.551,
+                "p99_us": 1351.679,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 631,
+                  "low_epochs": 631,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-b-memcached-local/report.json",
+                "slowdown_percent": -0.020022024226651336,
+                "p95_slowdown_percent": 12.395350434956143,
+                "p99_slowdown_percent": 9.090916427973617,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 23.760819046196886,
+                    "HyperAlloc+Memtis": 11.893543371037502
+                  },
+                  "fig8": {
+                    "HyperAlloc": 27.74364398123805,
+                    "HyperAlloc+Memtis": 6.674146773140954
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": -0.07004202521513347,
+                "reclaim_over_matched_tracking_percent": 0.05005506056663389,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.13016921998599,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9987.0,
+                  "mean_latency_us": 191.026211,
+                  "p95_us": 305.663,
+                  "p99_us": 1239.039,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases memcached --vm-memory-mib 73728 --run-mode chameleon --sample-seconds 1 --timeout 879 --cpu-pinning --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 400000 --cold-folios 1 --minimum-local-mib 58394"
+        },
+        {
+          "role": "high",
+          "candidate_id": "d09",
+          "configuration": {
+            "vm_memory_mib": 73728,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "qemu_service_cpus": [
+                12,
+                13
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            "minimum_local_mib": 51316.0,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 5000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 30.31285091486162,
+            "slowdown_percent": 0.025037556334506217,
+            "p95_slowdown_percent": 7.938954970643408
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 0.0,
+              "max": 0.050075112669012434
+            },
+            "p95_slowdown_percent": {
+              "min": 7.328266126747751,
+              "max": 8.549643814539065
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d09",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-d09-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-s16384-c131072-h5000-memcached-local/report.json",
+              "reclaim_percent": 30.312424158715643,
+              "slowdown_percent": 0.0,
+              "p95_slowdown_percent": 7.328266126747751,
+              "p99_slowdown_percent": 7.926347270275036,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 42.256090733302855,
+                  "HyperAlloc+Memtis": 23.806151406330336
+                },
+                "fig8": {
+                  "HyperAlloc": 64.49953654779374,
+                  "HyperAlloc+Memtis": 31.663741250201902
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.1001001001001,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9990.0,
+                "mean_latency_us": 200.584843,
+                "p95_us": 359.935,
+                "p99_us": 1380.351,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 637,
+                  "low_epochs": 637,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+                "slowdown_percent": 0.0,
+                "p95_slowdown_percent": 7.328266126747751,
+                "p99_slowdown_percent": 7.926347270275036,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 42.256090733302855,
+                    "HyperAlloc+Memtis": 23.806151406330336
+                  },
+                  "fig8": {
+                    "HyperAlloc": 64.49953654779374,
+                    "HyperAlloc+Memtis": 31.663741250201902
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.010011012113331219,
+                "reclaim_over_matched_tracking_percent": -0.010010010010030879,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.1001001001001,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9990.0,
+                  "mean_latency_us": 195.004476,
+                  "p95_us": 335.359,
+                  "p99_us": 1278.975,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "b73728-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d09",
+              "report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-d09-memcached-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-memcached-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-memcached-b73728-pin2-s16384-c131072-h5000-memcached-local/report.json",
+              "reclaim_percent": 30.313277671007597,
+              "slowdown_percent": 0.050075112669012434,
+              "p95_slowdown_percent": 8.549643814539065,
+              "p99_slowdown_percent": 17.453976817373306,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 42.20780799644694,
+                  "HyperAlloc+Memtis": 23.757185859640863
+                },
+                "fig8": {
+                  "HyperAlloc": 63.28178628724322,
+                  "HyperAlloc+Memtis": 30.444390654103977
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": null,
+                "cost": 100.150225338007,
+                "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                "throughput_ops": 9985.0,
+                "mean_latency_us": 203.38612,
+                "p95_us": 364.031,
+                "p99_us": 1502.207,
+                "load_valid": "1",
+                "schedule_complete": "1"
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 635,
+                  "low_epochs": 635,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-memcached-v1r2-b-memcached-local/report.json",
+                "slowdown_percent": 0.02003004506758721,
+                "p95_slowdown_percent": 19.09553985925676,
+                "p99_slowdown_percent": 21.239686563538363,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 42.237853064048366,
+                    "HyperAlloc+Memtis": 23.78723092724229
+                  },
+                  "fig8": {
+                    "HyperAlloc": 52.73589024252553,
+                    "HyperAlloc+Memtis": 19.898494609386283
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": -0.020022024226651336,
+                "reclaim_over_matched_tracking_percent": 0.040060090135196624,
+                "baseline_performance": {
+                  "runtime_seconds": null,
+                  "cost": 100.13016921998599,
+                  "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+                  "throughput_ops": 9987.0,
+                  "mean_latency_us": 191.026211,
+                  "p95_us": 305.663,
+                  "p99_us": 1239.039,
+                  "load_valid": "1",
+                  "schedule_complete": "1"
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b73728-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases memcached --vm-memory-mib 73728 --run-mode chameleon --sample-seconds 1 --timeout 879 --cpu-pinning --all-local-tracking --sample-period 16384 --cooling-samples 131072 --hhh-interval-ms 5000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 400000 --cold-folios 1 --minimum-local-mib 51316"
+        }
+      ],
+      "qualification": {
+        "aggregate_check": {
+          "status": "PASS",
+          "trend_criterion": "two-repeat-mean-with-observed-variation-v1",
+          "mean_curve_check": {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "mean:d07",
+              "mean:d08",
+              "mean:d09"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0.19447578458228465,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 11.2,
+              "middle_min_percent": 11.2,
+              "middle_max_percent": 22.4,
+              "high_min_percent": 24.0
+            },
+            "flat_throughput_tolerance_pp": 1.0,
+            "near_flat_throughput": true,
+            "trend_assessment": "near_flat_throughput_with_increasing_p95"
+          },
+          "required_repeats": 2,
+          "includes_all_local_origin": true,
+          "max_mean_reversal_pp": 1.0,
+          "flat_throughput_tolerance_pp": 1.0,
+          "mean_reference_tolerance_pp": 1.0,
+          "strict_mean_curve_check": {
+            "status": "FAIL",
+            "reason": "Curve crosses HyperAlloc+Memtis beyond allowed tolerance in fig8"
+          },
+          "reference_tolerance_pp": 1.0,
+          "repeat_checks": [
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "d07",
+                "d08",
+                "d09"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 11.2,
+                "middle_min_percent": 11.2,
+                "middle_max_percent": 22.4,
+                "high_min_percent": 24.0
+              },
+              "flat_throughput_tolerance_pp": 0,
+              "near_flat_throughput": false,
+              "trend_assessment": "deferred_to_repeat_mean"
+            },
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "v1r2-d07",
+                "v1r2-d08",
+                "v1r2-d09"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0.5079378318870704,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 11.2,
+                "middle_min_percent": 11.2,
+                "middle_max_percent": 22.4,
+                "high_min_percent": 24.0
+              },
+              "flat_throughput_tolerance_pp": 0,
+              "near_flat_throughput": false,
+              "trend_assessment": "deferred_to_repeat_mean"
+            }
+          ],
+          "mean_points": [
+            {
+              "trial_id": "mean:d07",
+              "reclaim_percent": 7.913718674999249,
+              "parameters": {
+                "epoch_us": 400000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 71124910080,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 6184501248,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 0.030043062391171826,
+              "p95_slowdown_percent": 3.473292799656491
+            },
+            {
+              "trial_id": "mean:d08",
+              "reclaim_percent": 20.712379268499497,
+              "parameters": {
+                "epoch_us": 400000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 61230546944,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 16078864384,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 0.0050055060566656095,
+              "p95_slowdown_percent": 4.312989960013002
+            },
+            {
+              "trial_id": "mean:d09",
+              "reclaim_percent": 30.31285091486162,
+              "parameters": {
+                "epoch_us": 400000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 53808726016,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 23500685312,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 0.025037556334506217,
+              "p95_slowdown_percent": 7.938954970643408
+            }
+          ],
+          "observed_ranges": [
+            {
+              "slowdown_percent": {
+                "min": 0.010011012113331219,
+                "max": 0.050075112669012434
+              },
+              "p95_slowdown_percent": {
+                "min": 2.977108113991278,
+                "max": 3.969477485321704
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 0.0,
+                "max": 0.010011012113331219
+              },
+              "p95_slowdown_percent": {
+                "min": 2.4427553755825837,
+                "max": 6.183224544443422
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 0.0,
+                "max": 0.050075112669012434
+              },
+              "p95_slowdown_percent": {
+                "min": 7.328266126747751,
+                "max": 8.549643814539065
+              }
+            }
+          ],
+          "adjacent_mean_reversals": [
+            {
+              "left_index": 0,
+              "metric": "slowdown_percent",
+              "drop_pp": 0.025037556334506217,
+              "observed_ranges_overlap": true
+            }
+          ],
+          "scope": "Arithmetic mean of all 2 repeats for each frozen configuration; observed min/max are not confidence intervals; raw points are never sorted by slowdown or changed",
+          "overall_trend_required": true
+        },
+        "repeat_checks": [
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "d07",
+              "d08",
+              "d09"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 11.2,
+              "middle_min_percent": 11.2,
+              "middle_max_percent": 22.4,
+              "high_min_percent": 24.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "deferred_to_repeat_mean"
+          },
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "v1r2-d07",
+              "v1r2-d08",
+              "v1r2-d09"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0.5079378318870704,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 11.2,
+              "middle_min_percent": 11.2,
+              "middle_max_percent": 22.4,
+              "high_min_percent": 24.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "deferred_to_repeat_mean"
+          }
+        ],
+        "measurement_basis": "Initial measured configuration plus frozen verification; not two additional post-search repeats",
+        "verification_reuse": null
+      }
+    },
+    "liblinear": {
+      "vm_memory_mib": 65536,
+      "status": "ACCEPTED",
+      "throughput_interpretation": null,
+      "cpu_affinity_profile": {
+        "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+        "host_numa_node": 0,
+        "vcpu_host_cpus": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "qemu_service_cpus": [
+          4,
+          5
+        ],
+        "guest_application_cpus": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "workload_identity": null,
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 4,
+        "status": "measured-pass",
+        "args": [
+          "--skip-build",
+          "--dataset",
+          "{inputs}/kdd12-prefix-68m",
+          "--threads",
+          "4"
+        ],
+        "prepare": {
+          "kind": "xz-prefix",
+          "source": "benchmarks/dataset/kdd12/kdd12.xz",
+          "records": 68000000,
+          "output": "kdd12-prefix-68m"
+        },
+        "selection_note": "56M-record Host probe was below the target; the complete 68M-record Guest run passed peak acceptance.",
+        "measurement": {
+          "case": "liblinear",
+          "run": "benchmarks/results/chameleon/table2-apps-v1-liblinear-local",
+          "target_peak_gib": 32,
+          "tolerance_percent": 10,
+          "status": "PASS",
+          "observed_peak_gib": 31.686237335205078,
+          "error_percent": -0.9805083274841309,
+          "within_target": true,
+          "memory_mib": 34496,
+          "application_check": {
+            "status": "EXIT_ONLY",
+            "scope": "New input: prediction output retained; exact baseline not yet recorded",
+            "accuracy_percent": [
+              "95.1394"
+            ]
+          }
+        },
+        "reference_accuracy_percent": 95.1394,
+        "reference_accuracy_tolerance_pp": 0.001,
+        "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; retain prediction numerator/denominator and require all 68000000 records. Previous exact-match failures remain archived."
+      },
+      "all_local": {
+        "policy_enabled": false,
+        "pebs_enabled": true,
+        "hhh_enabled": true,
+        "normalization_protocol": "fixed-first-capacity-all-local-v1",
+        "fixed_main_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "normalized_point": {
+          "reclaim_percent": 0,
+          "slowdown_percent": 0
+        },
+        "measurements": [
+          {
+            "repeat": 1,
+            "trial_id": "b65536-pin2",
+            "report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+            "performance": {
+              "runtime_seconds": 683.4200000000001,
+              "cost": 683.4200000000001,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/predict-time.txt",
+                "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/train-time.txt"
+              ]
+            },
+            "raw_reclaim_percent": -0.10202251947843965,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "guest_application_affinity": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "qemu_service_cpus": [
+                4,
+                5
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases liblinear --vm-memory-mib 65536 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+          },
+          {
+            "repeat": 2,
+            "trial_id": "v1r2-b",
+            "report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/report.json",
+            "performance": {
+              "runtime_seconds": 687.61,
+              "cost": 687.61,
+              "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+              "time_files": [
+                "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/predict-time.txt",
+                "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/train-time.txt"
+              ]
+            },
+            "raw_reclaim_percent": -0.10205090789658922,
+            "tracking_profile": {
+              "sampling": 65536,
+              "cooling": 131072,
+              "hhh_interval_ms": 15000
+            },
+            "checks": {
+              "application_exit_zero": true,
+              "guest_application_affinity": true,
+              "all_local_tracking_active": true,
+              "tracking_enabled": true,
+              "tracking_parameters_match": true,
+              "no_reclamation": true,
+              "resources_empty": true,
+              "no_transport_or_data_error": true
+            },
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "qemu_service_cpus": [
+                4,
+                5
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases liblinear --vm-memory-mib 65536 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+          }
+        ]
+      },
+      "points": [
+        {
+          "role": "low",
+          "candidate_id": "d02",
+          "configuration": {
+            "vm_memory_mib": 65536,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "qemu_service_cpus": [
+                4,
+                5
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "minimum_local_mib": 57672.0,
+            "psi_ppm": 1000,
+            "epoch_us": 200000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 11.899248673700274,
+            "slowdown_percent": -1.8765912615961056,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": -3.216177460419678,
+              "max": -0.5370050627725331
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d02",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-d02-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "reclaim_percent": 11.900106295147827,
+              "slowdown_percent": -3.216177460419678,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 5.591204034206635,
+                  "HyperAlloc+Memtis": 8.888135503503918
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 661.4399999999999,
+                "cost": 661.4399999999999,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-d02-liblinear-on/liblinear/application/20260922T181909Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-d02-liblinear-on/liblinear/application/20260922T181909Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 3586,
+                  "low_epochs": 3586,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+                "slowdown_percent": -3.216177460419678,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 5.591204034206635,
+                    "HyperAlloc+Memtis": 8.888135503503918
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.0,
+                "reclaim_over_matched_tracking_percent": -3.216177460419678,
+                "baseline_performance": {
+                  "runtime_seconds": 683.4200000000001,
+                  "cost": 683.4200000000001,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "b65536-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d02",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d02-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/report.json",
+              "reclaim_percent": 11.898391052252721,
+              "slowdown_percent": -0.5370050627725331,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 2.9116028258357134,
+                  "HyperAlloc+Memtis": 6.207623072344973
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 679.75,
+                "cost": 679.75,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d02-liblinear-on/liblinear/application/20260922T195115Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d02-liblinear-on/liblinear/application/20260922T195115Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 3683,
+                  "low_epochs": 3683,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/report.json",
+                "slowdown_percent": -1.1430898328994687,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 3.517687595962649,
+                    "HyperAlloc+Memtis": 6.813707842471908
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.0,
+                "reclaim_over_matched_tracking_percent": -1.1430898328994687,
+                "baseline_performance": {
+                  "runtime_seconds": 687.61,
+                  "cost": 687.61,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases liblinear --vm-memory-mib 65536 --run-mode chameleon --sample-seconds 1 --timeout 2338 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 200000 --cold-folios 1 --minimum-local-mib 57672"
+        },
+        {
+          "role": "middle",
+          "candidate_id": "d03",
+          "configuration": {
+            "vm_memory_mib": 65536,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "qemu_service_cpus": [
+                4,
+                5
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "minimum_local_mib": 45090.0,
+            "psi_ppm": 1000,
+            "epoch_us": 50000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 31.102706173002826,
+            "slowdown_percent": 0.5150566269643719,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": -0.04243364256242277,
+              "max": 1.0725468964911666
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d03",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-d03-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-s32768-c131072-h10000-liblinear-local/report.json",
+              "reclaim_percent": 31.103725982627807,
+              "slowdown_percent": -0.04243364256242277,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 11.410619128805589,
+                  "HyperAlloc+Memtis": 25.58765001824135
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 683.13,
+                "cost": 683.13,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-d03-liblinear-on/liblinear/application/20260922T184945Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-d03-liblinear-on/liblinear/application/20260922T184945Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 14785,
+                  "low_epochs": 14785,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+                "slowdown_percent": -0.04243364256242277,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 11.410619128805589,
+                    "HyperAlloc+Memtis": 25.58765001824135
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 1.979748909894341,
+                "reclaim_over_matched_tracking_percent": -1.9829256044192611,
+                "baseline_performance": {
+                  "runtime_seconds": 683.4200000000001,
+                  "cost": 683.4200000000001,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "b65536-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d03",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d03-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-s32768-c131072-h10000-liblinear-local/report.json",
+              "reclaim_percent": 31.101686363377844,
+              "slowdown_percent": 1.0725468964911666,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 10.294200791690598,
+                  "HyperAlloc+Memtis": 24.469814012237812
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 690.75,
+                "cost": 690.75,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d03-liblinear-on/liblinear/application/20260922T200737Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d03-liblinear-on/liblinear/application/20260922T200737Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 0,
+                  "read_bytes": 0,
+                  "write_completions": 0,
+                  "read_completions": 0,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 0,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 14939,
+                  "low_epochs": 14939,
+                  "high_epochs": 0,
+                  "psi_some_ns": 0,
+                  "psi_full_ns": 0,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/report.json",
+                "slowdown_percent": 0.45665420805398593,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 10.910093480127777,
+                    "HyperAlloc+Memtis": 25.085706700674994
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 1.3583281220459265,
+                "reclaim_over_matched_tracking_percent": -0.889590357988379,
+                "baseline_performance": {
+                  "runtime_seconds": 687.61,
+                  "cost": 687.61,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases liblinear --vm-memory-mib 65536 --run-mode chameleon --sample-seconds 1 --timeout 2338 --cpu-pinning --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 50000 --cold-folios 1 --minimum-local-mib 45090"
+        },
+        {
+          "role": "high",
+          "candidate_id": "d04",
+          "configuration": {
+            "vm_memory_mib": 65536,
+            "cpu_affinity_profile": {
+              "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+              "host_numa_node": 0,
+              "vcpu_host_cpus": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "qemu_service_cpus": [
+                4,
+                5
+              ],
+              "guest_application_cpus": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "minimum_local_mib": 35652.0,
+            "psi_ppm": 3000,
+            "epoch_us": 20000,
+            "cold_folios": 2,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 5000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          },
+          "mean": {
+            "reclaim_percent": 45.51248093590917,
+            "slowdown_percent": 1.0323080975095822,
+            "p95_slowdown_percent": null
+          },
+          "observed_ranges": {
+            "slowdown_percent": {
+              "min": 0.7082028620760239,
+              "max": 1.3564133329431405
+            }
+          },
+          "measurements": [
+            {
+              "repeat": 1,
+              "trial_id": "d04",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-d04-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-s16384-c131072-h5000-liblinear-local/report.json",
+              "reclaim_percent": 45.5073898514876,
+              "slowdown_percent": 1.3564133329431405,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 29.343095175724212,
+                  "HyperAlloc+Memtis": 46.28151890716016
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 692.69,
+                "cost": 692.69,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-d04-liblinear-on/liblinear/application/20260922T192126Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-d04-liblinear-on/liblinear/application/20260922T192126Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 140509184,
+                  "read_bytes": 127926272,
+                  "write_completions": 67,
+                  "read_completions": 61,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 5,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 37438,
+                  "low_epochs": 37390,
+                  "high_epochs": 48,
+                  "psi_some_ns": 31823762,
+                  "psi_full_ns": 31642350,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+                "slowdown_percent": 1.3564133329431405,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 29.343095175724212,
+                    "HyperAlloc+Memtis": 46.28151890716016
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.7125925492376339,
+                "reclaim_over_matched_tracking_percent": 0.6392654259105957,
+                "baseline_performance": {
+                  "runtime_seconds": 683.4200000000001,
+                  "cost": 683.4200000000001,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/liblinear/application/20260922T180356Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "b65536-pin2",
+              "verification_reuse": null
+            },
+            {
+              "repeat": 2,
+              "trial_id": "v1r2-d04",
+              "report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d04-liblinear-on/report.json",
+              "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-liblinear-local/report.json",
+              "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-b65536-pin2-s16384-c131072-h5000-liblinear-local/report.json",
+              "reclaim_percent": 45.51757202033073,
+              "slowdown_percent": 0.7082028620760239,
+              "p95_slowdown_percent": null,
+              "p99_slowdown_percent": null,
+              "reference_status": "PASS",
+              "reference_margin_pp": {
+                "fig7": {
+                  "HyperAlloc": 30.007851670961415,
+                  "HyperAlloc+Memtis": 46.94754817350276
+                }
+              },
+              "reference_point_coverage": null,
+              "reference_comparison_mode": null,
+              "performance": {
+                "runtime_seconds": 688.26,
+                "cost": 688.26,
+                "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                "time_files": [
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d04-liblinear-on/liblinear/application/20260922T202459Z/predict-time.txt",
+                  "benchmarks/results/chameleon/f78freq-liblinear-v1r2-d04-liblinear-on/liblinear/application/20260922T202459Z/train-time.txt"
+                ]
+              },
+              "counters": {
+                "rdma": {
+                  "write_bytes": 243269632,
+                  "read_bytes": 230686720,
+                  "write_completions": 116,
+                  "read_completions": 110,
+                  "transfer_errors": 0,
+                  "map_failures": 0
+                },
+                "shadow": {
+                  "demand_fault_successes": 5,
+                  "demand_fault_failures": 0,
+                  "data_save_failure": 0,
+                  "data_load_failure": 0
+                },
+                "policy": {
+                  "epochs": 37213,
+                  "low_epochs": 37148,
+                  "high_epochs": 65,
+                  "psi_some_ns": 54994677,
+                  "psi_full_ns": 54746456,
+                  "action_errors": 0
+                }
+              },
+              "normalization_protocol": "fixed-first-capacity-all-local-v1",
+              "per_repeat_normalization": {
+                "status": "PASS",
+                "baseline_report": "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/report.json",
+                "slowdown_percent": 0.09453032969271025,
+                "p95_slowdown_percent": null,
+                "p99_slowdown_percent": null,
+                "reference_status": "PASS",
+                "reference_margin_pp": {
+                  "fig7": {
+                    "HyperAlloc": 30.62152420334473,
+                    "HyperAlloc+Memtis": 47.56122070588607
+                  }
+                },
+                "comparison_error": null,
+                "tracking_only_overhead_percent": 0.0988932679861998,
+                "reclaim_over_matched_tracking_percent": -0.004358627903933154,
+                "baseline_performance": {
+                  "runtime_seconds": 687.61,
+                  "cost": 687.61,
+                  "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+                  "time_files": [
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/predict-time.txt",
+                    "benchmarks/results/chameleon/f78freq-liblinear-v1r2-b-liblinear-local/liblinear/application/20260922T193558Z/train-time.txt"
+                  ]
+                },
+                "scope": "Diagnostic normalization using the newly measured round all-local; main results use the fixed first same-capacity tracked all-local."
+              },
+              "fixed_normalization_baseline_id": "b65536-pin2",
+              "per_repeat_baseline_id": "v1r2-b",
+              "verification_reuse": null
+            }
+          ],
+          "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases liblinear --vm-memory-mib 65536 --run-mode chameleon --sample-seconds 1 --timeout 2338 --cpu-pinning --all-local-tracking --sample-period 16384 --cooling-samples 131072 --hhh-interval-ms 5000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 3000 --epoch-us 20000 --cold-folios 2 --minimum-local-mib 35652"
+        }
+      ],
+      "qualification": {
+        "aggregate_check": {
+          "status": "PASS",
+          "trend_criterion": "two-repeat-mean-with-observed-variation-v1",
+          "mean_curve_check": {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "mean:d02",
+              "mean:d03",
+              "mean:d04"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 16.8,
+              "middle_min_percent": 16.8,
+              "middle_max_percent": 33.6,
+              "high_min_percent": 36.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "overall_increase"
+          },
+          "required_repeats": 2,
+          "includes_all_local_origin": true,
+          "max_mean_reversal_pp": 1.0,
+          "flat_throughput_tolerance_pp": 0,
+          "mean_reference_tolerance_pp": 1.0,
+          "strict_mean_curve_check": {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "mean:d02",
+              "mean:d03",
+              "mean:d04"
+            ],
+            "reference_tolerance_pp": 0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 16.8,
+              "middle_min_percent": 16.8,
+              "middle_max_percent": 33.6,
+              "high_min_percent": 36.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "overall_increase"
+          },
+          "reference_tolerance_pp": 1.0,
+          "repeat_checks": [
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "d02",
+                "d03",
+                "d04"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 16.8,
+                "middle_min_percent": 16.8,
+                "middle_max_percent": 33.6,
+                "high_min_percent": 36.0
+              },
+              "flat_throughput_tolerance_pp": 0,
+              "near_flat_throughput": false,
+              "trend_assessment": "deferred_to_repeat_mean"
+            },
+            {
+              "status": "PASS",
+              "ordered_trial_ids": [
+                "v1r2-d02",
+                "v1r2-d03",
+                "v1r2-d04"
+              ],
+              "reference_tolerance_pp": 1.0,
+              "max_reference_excess_pp": 0,
+              "includes_all_local_origin": true,
+              "curve_point_count": 4,
+              "reclaim_range": {
+                "low_max_percent": 16.8,
+                "middle_min_percent": 16.8,
+                "middle_max_percent": 33.6,
+                "high_min_percent": 36.0
+              },
+              "flat_throughput_tolerance_pp": 0,
+              "near_flat_throughput": false,
+              "trend_assessment": "deferred_to_repeat_mean"
+            }
+          ],
+          "mean_points": [
+            {
+              "trial_id": "mean:d02",
+              "reclaim_percent": 11.899248673700274,
+              "parameters": {
+                "epoch_us": 200000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 60473475072,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 8246001664,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": -1.8765912615961056
+            },
+            {
+              "trial_id": "mean:d03",
+              "reclaim_percent": 31.102706173002826,
+              "parameters": {
+                "epoch_us": 50000,
+                "psi_ppm": 1000,
+                "cold_folios": 1,
+                "minimum_local_bytes": 47280291840,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 21439184896,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 0.5150566269643719
+            },
+            {
+              "trial_id": "mean:d04",
+              "reclaim_percent": 45.51248093590917,
+              "parameters": {
+                "epoch_us": 20000,
+                "psi_ppm": 3000,
+                "cold_folios": 2,
+                "minimum_local_bytes": 37383831552,
+                "free_pages": 512,
+                "total_reclaim_limit_bytes": 31335645184,
+                "capacity_limit_source": "explicit_local_floor"
+              },
+              "slowdown_percent": 1.0323080975095822
+            }
+          ],
+          "observed_ranges": [
+            {
+              "slowdown_percent": {
+                "min": -3.216177460419678,
+                "max": -0.5370050627725331
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": -0.04243364256242277,
+                "max": 1.0725468964911666
+              }
+            },
+            {
+              "slowdown_percent": {
+                "min": 0.7082028620760239,
+                "max": 1.3564133329431405
+              }
+            }
+          ],
+          "adjacent_mean_reversals": [],
+          "scope": "Arithmetic mean of all 2 repeats for each frozen configuration; observed min/max are not confidence intervals; raw points are never sorted by slowdown or changed",
+          "overall_trend_required": true
+        },
+        "repeat_checks": [
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "d02",
+              "d03",
+              "d04"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 16.8,
+              "middle_min_percent": 16.8,
+              "middle_max_percent": 33.6,
+              "high_min_percent": 36.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "deferred_to_repeat_mean"
+          },
+          {
+            "status": "PASS",
+            "ordered_trial_ids": [
+              "v1r2-d02",
+              "v1r2-d03",
+              "v1r2-d04"
+            ],
+            "reference_tolerance_pp": 1.0,
+            "max_reference_excess_pp": 0,
+            "includes_all_local_origin": true,
+            "curve_point_count": 4,
+            "reclaim_range": {
+              "low_max_percent": 16.8,
+              "middle_min_percent": 16.8,
+              "middle_max_percent": 33.6,
+              "high_min_percent": 36.0
+            },
+            "flat_throughput_tolerance_pp": 0,
+            "near_flat_throughput": false,
+            "trend_assessment": "deferred_to_repeat_mean"
+          }
+        ],
+        "measurement_basis": "Initial measured configuration plus frozen verification; not two additional post-search repeats",
+        "verification_reuse": null
+      }
+    }
+  },
+  "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json",
+  "user_selected_configurations": {
+    "cassandra": {
+      "candidate_ids": [
+        "d08",
+        "d09",
+        "d12"
+      ],
+      "configuration_file": "chameleon-cassandra-selected-curve.json",
+      "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "selected_utc": "2026-09-23T08:08:58.089285+00:00",
+      "reason": "User requests stop further verification and save current low/middle/high configuration, with high control epoch100000us. Each selected point has one completed observation; interrupted second-round low is excluded."
+    },
+    "pvc": {
+      "candidate_ids": [
+        "d01",
+        "d05",
+        "d06"
+      ],
+      "configuration_file": "chameleon-pvc-selected-curve.json",
+      "status": "SELECTED_BY_USER_SINGLE_HIGH_OBSERVATION",
+      "selected_utc": "2026-09-23T05:49:13.090641+00:00",
+      "reason": "User requests stop verification to save time and select d06 high18.623195% slowdown with unchanged d01 low/d05 middle; continue Cassandra. High has one completed observation; low/middle retain their prior two observations."
+    },
+    "graphchi": {
+      "candidate_ids": [
+        "d01",
+        "d02",
+        "d08"
+      ],
+      "configuration_file": "chameleon-graphchi-selected-curve.json",
+      "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "selected_utc": "2026-09-23T03:05:14.019689+00:00",
+      "reason": "User requested retain d08 (10.3031% slowdown) as high point, stop repeat and move to next application. Low and middle remain d01 and d02."
+    },
+    "graph500": {
+      "candidate_ids": [
+        "d01",
+        "d02",
+        "d11"
+      ],
+      "configuration_file": "chameleon-graph500-selected-curve.json",
+      "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+      "selected_utc": "2026-09-23T05:33:46.822408+00:00",
+      "reason": "User selected d11 high (12.232434% slowdown), retaining d01 low/d02 middle and moving to next application; single-observation selection, >13% target waived for this selection, no claim of two-repeat acceptance."
+    }
+  }
+}

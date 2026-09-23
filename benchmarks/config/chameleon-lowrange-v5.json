@@ -1,0 +1,276 @@
+{
+  "version": 5,
+  "reason": "User explicitly requests low-reclamation slowdown points in addition to existing high-reclamation curves; fixed VM per application, foreground supervision.",
+  "max_candidates": 16,
+  "max_points_per_capacity": 6,
+  "validation_repeats": 3,
+  "remote_pool_mib": 8192,
+  "free_pages": 512,
+  "applications": {
+    "spark-kmeans": {
+      "memory_steps_mib": [
+        32768
+      ],
+      "measured_peak_mib": 14905.5390625,
+      "peak_rounded_mib": 15360,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-spark-v3-spark-kmeans-local/report.json",
+      "initial_local_floor_mib": 21234,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        5,
+        15.4,
+        24.2
+      ]
+    },
+    "pvc": {
+      "memory_steps_mib": [
+        32768
+      ],
+      "measured_peak_mib": 16327.359375,
+      "peak_rounded_mib": 16384,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-pvc-local/report.json",
+      "initial_local_floor_mib": 25428,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        4.2,
+        9.8,
+        15.4
+      ]
+    },
+    "xsbench": {
+      "memory_steps_mib": [
+        81920
+      ],
+      "measured_peak_mib": 51173.609375,
+      "peak_rounded_mib": 51200,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-xsbench-local/report.json",
+      "initial_local_floor_mib": 64882,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        3.9,
+        9.1,
+        14.3
+      ]
+    },
+    "memcached": {
+      "memory_steps_mib": [
+        57344
+      ],
+      "measured_peak_mib": 32843.1953125,
+      "peak_rounded_mib": 33792,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-memcached-local/report.json",
+      "initial_local_floor_mib": 42664,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        4.8,
+        11.2,
+        17.6
+      ]
+    },
+    "cassandra": {
+      "memory_steps_mib": [
+        73728
+      ],
+      "measured_peak_mib": 47531.21484375,
+      "peak_rounded_mib": 48128,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-retry-v2-cassandra-local/report.json",
+      "initial_local_floor_mib": 57214,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        4.2,
+        9.8,
+        15.4
+      ]
+    },
+    "liblinear": {
+      "memory_steps_mib": [
+        49152
+      ],
+      "measured_peak_mib": 32446.70703125,
+      "peak_rounded_mib": 32768,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-liblinear-local/report.json",
+      "initial_local_floor_mib": 36544,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        5,
+        16.8,
+        26.4
+      ]
+    },
+    "graphchi": {
+      "memory_steps_mib": [
+        40960
+      ],
+      "measured_peak_mib": 24541.5,
+      "peak_rounded_mib": 24576,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-graphchi-local/report.json",
+      "initial_local_floor_mib": 28638,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        5,
+        14.7,
+        23.1
+      ]
+    },
+    "graph500": {
+      "memory_steps_mib": [
+        32768
+      ],
+      "measured_peak_mib": 19998.73046875,
+      "peak_rounded_mib": 20480,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-g500-v2/report.json",
+      "initial_local_floor_mib": 25692,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        4.05,
+        9.45,
+        14.85
+      ]
+    }
+  },
+  "policy_templates": [
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 10000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.05
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 10000,
+      "cold_folios": 2,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 10000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.95
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 5000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.025
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 5000,
+      "cold_folios": 8,
+      "local_peak_fraction": 0.9
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 2000,
+      "cold_folios": 2,
+      "local_peak_fraction": 0.925
+    },
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 5000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.1
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 20000,
+      "cold_folios": 2,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 5000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.975
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 10000,
+      "cold_folios": 8,
+      "local_peak_fraction": 0.9
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 10000,
+      "cold_folios": 16,
+      "local_peak_fraction": 0.85
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 20000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.95
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 2000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 10000,
+      "cold_folios": 2,
+      "local_peak_fraction": 0.925
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 5000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.85
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 20000,
+      "cold_folios": 16,
+      "local_peak_fraction": 0.8
+    }
+  ],
+  "strategy": "low_range_coverage",
+  "pre_reclaim_headroom_mib": 0,
+  "initial_local_floor_reason": "At least measured peak plus 4GiB, and leave points inside supplied interpolation domain (80% of shared maximum reclamation); floor remains independently tunable.",
+  "tracking": {
+    "sample_period": 65536,
+    "cooling_samples": 131072,
+    "hhh_interval_ms": 15000
+  },
+  "baseline_protocol": "all-local-pebs-hhh-on-v1",
+  "run_prefix": "f78low",
+  "max_candidates_per_coverage_band": 5,
+  "coverage_templates": [
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 200000,
+      "cold_folios": 1
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 100000,
+      "cold_folios": 1
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 50000,
+      "cold_folios": 2
+    }
+  ],
+  "preparation_reason": "User explicitly accepts free-only operating points at local floor; no per-point cold/RDMA requirement. Preserve zero headroom and actual zero counters.",
+  "reference_tolerance_pp": 1.0,
+  "reference_criterion": "repeat-excess-at-most-1pp-mean-strictly-below-v1"
+}

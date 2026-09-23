@@ -1,0 +1,105 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <gtest/gtest.h>
+
+#include "cachelib/navy/block_cache/Region.h"
+
+namespace facebook::cachelib::navy::tests {
+TEST(Region, ReadAndBlock) {
+  Region r{RegionId(0), 1024};
+
+  auto desc = r.openForRead();
+  EXPECT_EQ(desc.status(), OpenStatus::Ready);
+
+  EXPECT_FALSE(r.readyForReclaim(false, false));
+  // Once readyForReclaim has been attempted, all future accesses will be
+  // blocked.
+  EXPECT_EQ(r.openForRead().status(), OpenStatus::Retry);
+  r.close(std::move(desc));
+  EXPECT_TRUE(r.readyForReclaim(false, false));
+
+  r.reset();
+  EXPECT_EQ(r.openForRead().status(), OpenStatus::Ready);
+}
+
+TEST(Region, WriteAndBlock) {
+  Region r{RegionId(0), 1024};
+  r.attachBuffer(std::make_unique<Buffer>(1024));
+
+  auto [desc1, addr1, view1] = r.openAndAllocate(1025);
+  EXPECT_EQ(desc1.status(), OpenStatus::Error);
+
+  auto [desc2, addr2, view2] = r.openAndAllocate(100);
+  EXPECT_EQ(desc2.status(), OpenStatus::Ready);
+  EXPECT_FALSE(r.readyForReclaim(false, false));
+  r.close(std::move(desc2));
+  EXPECT_TRUE(r.readyForReclaim(false, false));
+
+  r.reset();
+  auto [desc3, addr3, view3] = r.openAndAllocate(1024);
+  EXPECT_EQ(desc3.status(), OpenStatus::Ready);
+}
+
+TEST(Region, AllowReadDuringReclaim) {
+  Region r{RegionId(0), 1024};
+
+  auto desc = r.openForRead();
+  EXPECT_EQ(desc.status(), OpenStatus::Ready);
+
+  EXPECT_TRUE(r.readyForReclaim(false, true /* allowRead */));
+  // With allowRead set, read won't be blocked during reclaim.
+  auto desc2 = r.openForRead();
+  EXPECT_EQ(desc2.status(), OpenStatus::Ready);
+  r.close(std::move(desc));
+  r.close(std::move(desc2));
+}
+
+TEST(Region, BufferAttachDetach) {
+  auto b = std::make_unique<Buffer>(1024);
+  Region r{RegionId(0), 1024};
+  r.attachBuffer(std::move(b));
+  EXPECT_TRUE(r.hasBuffer());
+  auto [desc, _, writeView] = r.openAndAllocate(1024);
+  memset(writeView.data(), 'A', 1024);
+  r.close(std::move(desc));
+  Buffer readBuf(1024);
+  r.readFromBuffer(0, readBuf.mutableView());
+  const std::vector<char> expected(1024, 'A');
+  EXPECT_EQ(std::memcmp(expected.data(), readBuf.data(), 1024), 0);
+  b = r.detachBuffer();
+  EXPECT_FALSE(r.hasBuffer());
+}
+
+TEST(Region, BufferFlush) {
+  auto b = std::make_unique<Buffer>(1024);
+  Region r{RegionId(0), 1024};
+  r.attachBuffer(std::move(b));
+  EXPECT_TRUE(r.hasBuffer());
+
+  auto [desc2, addr2, view2] = r.openAndAllocate(100);
+  EXPECT_EQ(desc2.status(), OpenStatus::Ready);
+
+  EXPECT_EQ(Region::FlushRes::kRetryPendingWrites,
+            r.flushBuffer([](auto, auto) { return true; }));
+
+  r.close(std::move(desc2));
+  EXPECT_EQ(Region::FlushRes::kRetryDeviceFailure,
+            r.flushBuffer([](auto, auto) { return false; }));
+  EXPECT_EQ(Region::FlushRes::kSuccess,
+            r.flushBuffer([](auto, auto) { return true; }));
+}
+} // namespace facebook::cachelib::navy::tests

@@ -1,0 +1,2 @@
+# L1-only TAP endpoint. No physical-host interface or bridge is needed.
+CONFIG_TUN=y

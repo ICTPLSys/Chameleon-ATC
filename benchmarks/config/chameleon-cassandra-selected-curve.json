@@ -1,0 +1,704 @@
+{
+  "schema_version": 1,
+  "selected_utc": "2026-09-23T08:08:58.089285+00:00",
+  "application": "cassandra",
+  "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+  "selection_reason": "User requests stop further verification and save current low/middle/high configuration, with high control epoch100000us. Each selected point has one completed observation; interrupted second-round low is excluded.",
+  "vm_memory_mib": 90112,
+  "remote_pool_mib": 8192,
+  "workload_configuration": {
+    "target_peak_gib": 48,
+    "vcpus": 12,
+    "status": "measured-pass",
+    "args": [
+      "--records",
+      "4000000",
+      "--operations",
+      "1000000",
+      "--threads",
+      "16",
+      "--connections",
+      "8",
+      "--load-target",
+      "10000"
+    ],
+    "service_args": [
+      "--heap-mib",
+      "45056"
+    ],
+    "previous_measurements": [
+      {
+        "case": "cassandra",
+        "run": "benchmarks/results/chameleon/table2-apps-v1-cassandra-local",
+        "target_peak_gib": 48,
+        "tolerance_percent": 10,
+        "status": "ADJUST_REQUIRED",
+        "observed_peak_gib": 46.65790557861328,
+        "error_percent": -2.796030044555664,
+        "within_target": true,
+        "memory_mib": 49826,
+        "application_check": {
+          "status": "FAIL",
+          "scope": "YCSB operation success; not an independent full database-content scan",
+          "insert_ok": [
+            "2718050"
+          ],
+          "read_ok": [
+            "699685"
+          ]
+        }
+      }
+    ],
+    "measurement": {
+      "case": "cassandra",
+      "run": "benchmarks/results/chameleon/table2-retry-v2-cassandra-local",
+      "target_peak_gib": 48,
+      "tolerance_percent": 10,
+      "status": "PASS",
+      "observed_peak_gib": 46.41720199584961,
+      "error_percent": -3.2974958419799805,
+      "within_target": true,
+      "memory_mib": 49580,
+      "application_check": {
+        "status": "PASS",
+        "scope": "YCSB operation success; not an independent full database-content scan",
+        "insert_ok": [
+          "4000000"
+        ],
+        "read_ok": [
+          "1000000"
+        ]
+      }
+    }
+  },
+  "cpu_affinity_profile": {
+    "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+    "host_numa_node": 0,
+    "vcpu_host_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "qemu_service_cpus": [
+      12,
+      13
+    ],
+    "guest_application_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ]
+  },
+  "all_local": {
+    "trial_id": "b90112-pin2",
+    "report": "benchmarks/results/chameleon/f78freq-cassandra-b90112-pin2-cassandra-local/report.json",
+    "performance": {
+      "runtime_seconds": 43.106,
+      "cost": 43.106,
+      "cost_metric": "YCSB fixed-count read-phase runtime",
+      "throughput_ops": 23198.626641302835,
+      "mean_latency_us": 640.632432,
+      "p95_us": 962.0,
+      "p99_us": 1247.0
+    },
+    "tracking_profile": {
+      "sampling": 65536,
+      "cooling": 131072,
+      "hhh_interval_ms": 15000
+    },
+    "normalized_point": {
+      "reclaim_percent": 0,
+      "slowdown_percent": 0,
+      "p95_slowdown_percent": 0
+    },
+    "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases cassandra --vm-memory-mib 90112 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+  },
+  "points": [
+    {
+      "role": "low",
+      "trial_id": "d08",
+      "configuration": {
+        "vm_memory_mib": 90112,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "qemu_service_cpus": [
+            12,
+            13
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "minimum_local_mib": 81552.0,
+        "psi_ppm": 1000,
+        "epoch_us": 400000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-cassandra-d08-cassandra-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 43.393,
+          "cost": 43.393,
+          "cost_metric": "YCSB fixed-count read-phase runtime",
+          "throughput_ops": 23045.191620768328,
+          "mean_latency_us": 645.583034,
+          "p95_us": 978.0,
+          "p99_us": 1297.0
+        },
+        "reclaim_percent": 9.42616600752909,
+        "slowdown_percent": 0.6658005846053916,
+        "p95_slowdown_percent": 1.6632016632016633,
+        "reference_status": "PASS",
+        "reference_margin_pp": {
+          "fig7": {
+            "HyperAlloc": 18.899614434217334,
+            "HyperAlloc+Memtis": 5.331608961964398
+          },
+          "fig8": {
+            "HyperAlloc": 12.074363553362335,
+            "HyperAlloc+Memtis": 5.705580945080336
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "scope": "YCSB operation success; not an independent full database-content scan",
+          "insert_ok": [
+            "4000000"
+          ],
+          "read_ok": [
+            "1000000"
+          ]
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 0,
+            "read_bytes": 0,
+            "write_completions": 0,
+            "read_completions": 0,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 0,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 1151,
+            "low_epochs": 1151,
+            "high_epochs": 0,
+            "psi_some_ns": 0,
+            "psi_full_ns": 0,
+            "action_errors": 0
+          }
+        },
+        "tracking_only_overhead_percent": 0.0,
+        "reclaim_over_matched_tracking_percent": 0.6658005846053916,
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-cassandra-b90112-pin2-cassandra-local/report.json"
+      },
+      "parameters_requested": {
+        "psi_ppm": 1000,
+        "epoch_us": 400000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "hhh_interval_ms": 15000,
+        "minimum_local_mib": 81552
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases cassandra --vm-memory-mib 90112 --run-mode chameleon --sample-seconds 1 --timeout 1502 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 400000 --cold-folios 1 --minimum-local-mib 81552"
+    },
+    {
+      "role": "middle",
+      "trial_id": "d09",
+      "configuration": {
+        "vm_memory_mib": 90112,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "qemu_service_cpus": [
+            12,
+            13
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "minimum_local_mib": 73712.0,
+        "psi_ppm": 1000,
+        "epoch_us": 400000,
+        "cold_folios": 1,
+        "sample_period": 32768,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 10000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-cassandra-d09-cassandra-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 43.539,
+          "cost": 43.539,
+          "cost_metric": "YCSB fixed-count read-phase runtime",
+          "throughput_ops": 22967.91382438733,
+          "mean_latency_us": 647.869985,
+          "p95_us": 981.0,
+          "p99_us": 1289.0
+        },
+        "reclaim_percent": 18.126772902663333,
+        "slowdown_percent": 1.0045005335684198,
+        "p95_slowdown_percent": 1.9750519750519668,
+        "reference_status": "PASS",
+        "reference_margin_pp": {
+          "fig7": {
+            "HyperAlloc": 41.19674020223206,
+            "HyperAlloc+Memtis": 15.68565882042658
+          },
+          "fig8": {
+            "HyperAlloc": 44.6588125382647,
+            "HyperAlloc+Memtis": 23.69634243205026
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "scope": "YCSB operation success; not an independent full database-content scan",
+          "insert_ok": [
+            "4000000"
+          ],
+          "read_ok": [
+            "1000000"
+          ]
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 0,
+            "read_bytes": 0,
+            "write_completions": 0,
+            "read_completions": 0,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 0,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 1155,
+            "low_epochs": 1155,
+            "high_epochs": 0,
+            "psi_some_ns": 0,
+            "psi_full_ns": 0,
+            "action_errors": 0
+          }
+        },
+        "tracking_only_overhead_percent": 0.38741706490976746,
+        "reclaim_over_matched_tracking_percent": 0.614702008180612,
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-cassandra-b90112-pin2-s32768-c131072-h10000-cassandra-local/report.json"
+      },
+      "parameters_requested": {
+        "psi_ppm": 1000,
+        "epoch_us": 400000,
+        "cold_folios": 1,
+        "sample_period": 32768,
+        "hhh_interval_ms": 10000,
+        "minimum_local_mib": 73712
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases cassandra --vm-memory-mib 90112 --run-mode chameleon --sample-seconds 1 --timeout 1502 --cpu-pinning --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 400000 --cold-folios 1 --minimum-local-mib 73712"
+    },
+    {
+      "role": "high",
+      "trial_id": "d12",
+      "configuration": {
+        "vm_memory_mib": 90112,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "qemu_service_cpus": [
+            12,
+            13
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "minimum_local_mib": 66144.0,
+        "psi_ppm": 1000,
+        "epoch_us": 100000,
+        "cold_folios": 1,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-cassandra-d12-cassandra-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 45.437,
+          "cost": 45.437,
+          "cost_metric": "YCSB fixed-count read-phase runtime",
+          "load_validation": {
+            "status": "PASS",
+            "phase": "load",
+            "expected": 4000000,
+            "completed": 4000000,
+            "insert_ok": 4000000,
+            "missing_insert_ok": 0,
+            "return_counts": [
+              {
+                "operation": "INSERT",
+                "code": "OK",
+                "count": 4000000
+              },
+              {
+                "operation": "INSERT",
+                "code": "ERROR",
+                "count": 7
+              }
+            ],
+            "errors": [
+              {
+                "operation": "INSERT",
+                "code": "ERROR",
+                "count": 7
+              }
+            ],
+            "acceptance_policy": "load-insert-errors-nonfatal-v1",
+            "warnings": [
+              "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+            ]
+          },
+          "throughput_ops": 22008.49527917776,
+          "mean_latency_us": 678.186377,
+          "p95_us": 1053.0,
+          "p99_us": 1493.0
+        },
+        "reclaim_percent": 26.52450032716941,
+        "slowdown_percent": 5.407599870087676,
+        "p95_slowdown_percent": 9.459459459459453,
+        "reference_status": "PASS",
+        "reference_margin_pp": {
+          "fig7": {
+            "HyperAlloc": 61.955115443873325,
+            "HyperAlloc+Memtis": 25.641400784251143
+          },
+          "fig8": {
+            "HyperAlloc": 72.82874171835041,
+            "HyperAlloc+Memtis": 40.86812490991034
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "scope": "YCSB read success; user permits load INSERT errors. Actual load counts retained; not an independent full database-content scan",
+          "insert_ok": [
+            "4000000"
+          ],
+          "read_ok": [
+            "1000000"
+          ],
+          "load_validation": {
+            "status": "PASS",
+            "phase": "load",
+            "expected": 4000000,
+            "completed": 4000000,
+            "insert_ok": 4000000,
+            "missing_insert_ok": 0,
+            "return_counts": [
+              {
+                "operation": "INSERT",
+                "code": "OK",
+                "count": 4000000
+              },
+              {
+                "operation": "INSERT",
+                "code": "ERROR",
+                "count": 7
+              }
+            ],
+            "errors": [
+              {
+                "operation": "INSERT",
+                "code": "ERROR",
+                "count": 7
+              }
+            ],
+            "acceptance_policy": "load-insert-errors-nonfatal-v1",
+            "warnings": [
+              "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+            ]
+          }
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 0,
+            "read_bytes": 0,
+            "write_completions": 0,
+            "read_completions": 0,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 0,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 4645,
+            "low_epochs": 4645,
+            "high_epochs": 0,
+            "psi_some_ns": 0,
+            "psi_full_ns": 0,
+            "action_errors": 0
+          }
+        },
+        "tracking_only_overhead_percent": 1.5380689463183606,
+        "reclaim_over_matched_tracking_percent": 3.810916402019693,
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-cassandra-b90112-pin2-s512-c131072-h1-cassandra-local/report.json"
+      },
+      "parameters_requested": {
+        "psi_ppm": 1000,
+        "epoch_us": 100000,
+        "cold_folios": 1,
+        "sample_period": 512,
+        "hhh_interval_ms": 1,
+        "minimum_local_mib": 66144
+      },
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases cassandra --vm-memory-mib 90112 --run-mode chameleon --sample-seconds 1 --timeout 1502 --cpu-pinning --all-local-tracking --sample-period 512 --cooling-samples 131072 --hhh-interval-ms 1 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 100000 --cold-folios 1 --minimum-local-mib 66144"
+    }
+  ],
+  "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json",
+  "reference_scope": "User-supplied estimated target curves, not measured-baseline SOTA evidence",
+  "normalization_protocol": "fixed-first-capacity-all-local-v1",
+  "additional_all_local": {
+    "b90112-pin2-s512-c131072-h1": {
+      "report": "benchmarks/results/chameleon/f78freq-cassandra-b90112-pin2-s512-c131072-h1-cassandra-local/report.json",
+      "performance": {
+        "runtime_seconds": 43.769,
+        "cost": 43.769,
+        "cost_metric": "YCSB fixed-count read-phase runtime",
+        "load_validation": {
+          "status": "PASS",
+          "phase": "load",
+          "expected": 4000000,
+          "completed": 4000000,
+          "insert_ok": 4000000,
+          "missing_insert_ok": 0,
+          "return_counts": [
+            {
+              "operation": "INSERT",
+              "code": "OK",
+              "count": 4000000
+            },
+            {
+              "operation": "INSERT",
+              "code": "ERROR",
+              "count": 8
+            }
+          ],
+          "errors": [
+            {
+              "operation": "INSERT",
+              "code": "ERROR",
+              "count": 8
+            }
+          ],
+          "acceptance_policy": "load-insert-errors-nonfatal-v1",
+          "warnings": [
+            "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+          ]
+        },
+        "throughput_ops": 22847.22063560968,
+        "mean_latency_us": 652.548052,
+        "p95_us": 993.0,
+        "p99_us": 1285.0
+      },
+      "tracking_profile": {
+        "sampling": 512,
+        "cooling": 131072,
+        "hhh_interval_ms": 1
+      },
+      "checks": {
+        "application_exit_zero": true,
+        "guest_application_affinity": true,
+        "all_local_tracking_active": true,
+        "tracking_enabled": true,
+        "tracking_parameters_match": true,
+        "no_reclamation": true,
+        "resources_empty": true,
+        "no_transport_or_data_error": true
+      }
+    },
+    "v1r2-b": {
+      "report": "benchmarks/results/chameleon/f78freq-cassandra-v1r2-b-cassandra-local/report.json",
+      "performance": {
+        "runtime_seconds": 43.312,
+        "cost": 43.312,
+        "cost_metric": "YCSB fixed-count read-phase runtime",
+        "load_validation": {
+          "status": "PASS",
+          "phase": "load",
+          "expected": 4000000,
+          "completed": 4000000,
+          "insert_ok": 4000000,
+          "missing_insert_ok": 0,
+          "return_counts": [
+            {
+              "operation": "INSERT",
+              "code": "OK",
+              "count": 4000000
+            }
+          ],
+          "errors": [],
+          "acceptance_policy": "load-insert-errors-nonfatal-v1",
+          "warnings": []
+        },
+        "throughput_ops": 23088.289619504987,
+        "mean_latency_us": 644.079811,
+        "p95_us": 971.0,
+        "p99_us": 1248.0
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "checks": {
+        "application_exit_zero": true,
+        "guest_application_affinity": true,
+        "all_local_tracking_active": true,
+        "tracking_enabled": true,
+        "tracking_parameters_match": true,
+        "no_reclamation": true,
+        "resources_empty": true,
+        "no_transport_or_data_error": true
+      }
+    }
+  },
+  "previous_high_trial_id": "d11",
+  "dataset_validation_policy": "INSERT errors do not independently fail a run; retain actual INSERT OK/ERROR/missing counts and validate formal READ outcomes."
+}

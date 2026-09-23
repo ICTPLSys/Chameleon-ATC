@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+#include <folly/json/dynamic.h>
+
+#include <cstdint>
+
+#include "cachelib/allocator/nvmcache/NavyConfig.h"
+#include "cachelib/navy/AbstractCache.h"
+#include "cachelib/navy/common/Types.h"
+
+namespace facebook {
+namespace cachelib {
+struct NavyCacheSizes {
+  uint64_t deviceSize{};
+  uint64_t metadataSize{};
+};
+
+// Return the effective device and metadata sizes after applying Navy's
+// alignment requirements.
+NavyCacheSizes getNavyCacheSizes(const navy::NavyConfig& config);
+
+// return a navy cache which is created by CacheProto whose data is from
+// NavyConfig.
+std::unique_ptr<navy::AbstractCache> createNavyCache(
+    const navy::NavyConfig& config,
+    navy::ExpiredCheck checkExpired,
+    navy::DestructorCallback destructorCb,
+    bool truncate,
+    std::shared_ptr<navy::DeviceEncryptor> encryptor,
+    bool itemDestructorEnabled,
+    const navy::NavyPersistParams& persistParams = {});
+
+// create a flash device for Navy engines to use
+// made public for testing purposes
+std::unique_ptr<navy::Device> createDevice(
+    const navy::NavyConfig& config,
+    std::shared_ptr<navy::DeviceEncryptor> encryptor);
+} // namespace cachelib
+} // namespace facebook
