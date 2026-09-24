@@ -1,0 +1,242 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.service.snapshot;
+
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
+
+import com.google.common.annotations.VisibleForTesting;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.db.ColumnFamilyStore;
+import org.apache.cassandra.db.Directories;
+import org.apache.cassandra.db.Keyspace;
+import org.apache.cassandra.io.util.File;
+import org.apache.cassandra.tcm.ClusterMetadata;
+
+import static org.apache.cassandra.db.Directories.SNAPSHOT_SUBDIR;
+import static org.apache.cassandra.service.snapshot.TableSnapshot.buildSnapshotId;
+
+/**
+ * Loads snapshot metadata from data directories
+ */
+public class SnapshotLoader
+{
+    private static final Logger logger = LoggerFactory.getLogger(SnapshotLoader.class);
+
+    static final Pattern SNAPSHOT_DIR_PATTERN = Pattern.compile("(?<keyspace>\\w+)/(?<tableName>\\w+)" +
+                                                                "(-(?<tableId>[0-9a-f]{32}))?" +
+                                                                "/snapshots/(?<tag>.+)$");
+
+    private final Collection<Path> dataDirectories;
+
+    public SnapshotLoader()
+    {
+        this(DatabaseDescriptor.getAllDataFileLocations());
+    }
+
+    public SnapshotLoader(String[] dataDirectories)
+    {
+        this(Arrays.stream(dataDirectories).map(File::getPath).collect(Collectors.toList()));
+    }
+
+    public SnapshotLoader(Collection<Path> dataDirs)
+    {
+        this.dataDirectories = dataDirs;
+    }
+
+    public SnapshotLoader(Directories directories)
+    {
+        this(directories.getCFDirectories().stream().map(File::toPath).collect(Collectors.toList()));
+    }
+
+    @VisibleForTesting
+    static class Visitor extends SimpleFileVisitor<Path>
+    {
+        private static final Pattern UUID_PATTERN = Pattern.compile("([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]+)");
+        private final Map<String, TableSnapshot.Builder> snapshots;
+
+        public Visitor(Map<String, TableSnapshot.Builder> snapshots)
+        {
+            this.snapshots = snapshots;
+        }
+
+        @Override
+        public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException
+        {
+            // Cassandra can remove some files while traversing the tree,
+            // for example when SSTables are compacted while we are walking it.
+            // SnapshotLoader is interested only in SSTables in snapshot directories which are not compacted,
+            // but we need to cover these in regular table directories too.
+            // If listing failed but exception is NoSuchFileException, then we
+            // just skip it and continue with the listing.
+            if (exc instanceof NoSuchFileException)
+                return FileVisitResult.CONTINUE;
+            else
+                throw exc;
+        }
+
+        @Override
+        public FileVisitResult preVisitDirectory(Path subdir, BasicFileAttributes attrs)
+        {
+            // see CASSANDRA-18359
+            if (subdir.getParent() == null || subdir.getParent().getFileName() == null)
+                return FileVisitResult.CONTINUE;
+
+            if (subdir.getParent().getFileName().toString().equals(SNAPSHOT_SUBDIR))
+            {
+                logger.trace("Processing directory {}", subdir);
+                Matcher snapshotDirMatcher = SNAPSHOT_DIR_PATTERN.matcher(subdir.toString());
+                if (snapshotDirMatcher.find())
+                {
+                    try
+                    {
+                        loadSnapshotFromDir(snapshotDirMatcher, subdir);
+                    }
+                    catch (Throwable e)
+                    {
+                        logger.warn("Could not load snapshot from {}.", subdir, e);
+                    }
+                }
+                return FileVisitResult.SKIP_SUBTREE;
+            }
+
+            return subdir.getFileName().toString().equals(Directories.BACKUPS_SUBDIR)
+                   ? FileVisitResult.SKIP_SUBTREE
+                   : FileVisitResult.CONTINUE;
+        }
+
+        /**
+         * Given an UUID string without dashes (ie. c7e513243f0711ec9bbc0242ac130002)
+         * return an UUID object (ie. c7e51324-3f07-11ec-9bbc-0242ac130002)
+         */
+        static UUID parseUUID(String uuidWithoutDashes) throws IllegalArgumentException
+        {
+            assert uuidWithoutDashes.length() == 32 && !uuidWithoutDashes.contains("-");
+            String dashedUUID = UUID_PATTERN.matcher(uuidWithoutDashes).replaceFirst("$1-$2-$3-$4-$5");
+            return UUID.fromString(dashedUUID);
+        }
+
+        private void loadSnapshotFromDir(Matcher snapshotDirMatcher, Path snapshotDir)
+        {
+            String keyspaceName = snapshotDirMatcher.group("keyspace");
+            String tableName = snapshotDirMatcher.group("tableName");
+            final UUID tableId = maybeDetermineTableId(snapshotDirMatcher, snapshotDir, keyspaceName, tableName);
+            String tag = snapshotDirMatcher.group("tag");
+            String snapshotId = buildSnapshotId(keyspaceName, tableName, tableId, tag);
+            TableSnapshot.Builder builder = snapshots.computeIfAbsent(snapshotId, k -> new TableSnapshot.Builder(keyspaceName, tableName, tableId, tag));
+            builder.addSnapshotDir(new File(snapshotDir).toAbsolute());
+        }
+
+        private @Nullable UUID maybeDetermineTableId(Matcher snapshotDirMatcher, Path snapshotDir, String keyspaceName, String tableName)
+        {
+            final UUID tableId;
+            if (snapshotDirMatcher.group("tableId") == null)
+            {
+                logger.debug("Snapshot directory without tableId found (pre-2.1 format): {}", snapshotDir);
+                // If we don't have a tableId in folder name (e.g pre 2.1 created table)
+                // Then attempt to get tableId from CFS on startup
+                // falling back to null is fine as it still yields a unique result in buildSnapshotId for pre-2.1 table
+                if (Keyspace.isInitialized() && ClusterMetadata.currentNullable() != null)
+                {
+                    ColumnFamilyStore cfs = ColumnFamilyStore.getIfExists(keyspaceName, tableName);
+                    tableId = cfs != null && cfs.metadata != null && cfs.metadata.id != null
+                              ? cfs.metadata.id.asUUID()
+                              : null;
+                    if (tableId == null)
+                    {
+                        logger.warn("Snapshot directory without tableId found (pre-2.1 format), " +
+                                    "unable to resolve table id from column family, defaulting to null, snapshot dir: {}", snapshotDir);
+                    }
+                }
+                else
+                {
+                    logger.warn("Snapshot directory without tableId found (pre-2.1 format), " +
+                                "TCM or keyspace is not initialized or there is a schema missing, defaulting to null, snapshot dir: {}", snapshotDir);
+                    tableId = null;
+                }
+            }
+            else
+            {
+                tableId = parseUUID(snapshotDirMatcher.group("tableId"));
+            }
+            return tableId;
+        }
+    }
+
+    public Set<TableSnapshot> loadSnapshots(String keyspace)
+    {
+        // if we supply a keyspace, the walking max depth will be suddenly shorther
+        // because we are one level down in the directory structure
+        int maxDepth = keyspace == null ? 5 : 4;
+
+        Map<String, TableSnapshot.Builder> snapshots = new HashMap<>();
+        Visitor visitor = new Visitor(snapshots);
+
+        for (Path dataDir : dataDirectories)
+        {
+            if (keyspace != null)
+                dataDir = dataDir.resolve(keyspace);
+
+            try
+            {
+                if (new File(dataDir).exists())
+                    Files.walkFileTree(dataDir, Collections.emptySet(), maxDepth, visitor);
+                else
+                    logger.debug("Skipping non-existing data directory {}", dataDir);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(String.format("Error while loading snapshots from %s", dataDir), e);
+            }
+        }
+
+        Set<TableSnapshot> tableSnapshots = new HashSet<>();
+        for (TableSnapshot.Builder snapshotBuilder : snapshots.values())
+            tableSnapshots.add(snapshotBuilder.build());
+
+        return tableSnapshots;
+    }
+
+    public Set<TableSnapshot> loadSnapshots()
+    {
+        return loadSnapshots(null);
+    }
+}

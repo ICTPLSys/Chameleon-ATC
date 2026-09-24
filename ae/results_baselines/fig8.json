@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "figure": "fig8",
+  "kind": "pre-measured",
+  "source": "Author-provided pre-measured baseline results",
+  "provenance": "Author-provided baseline results measured before artifact evaluation, as confirmed by the author. The artifact combines these fixed results with reviewer-run Chameleon measurements.",
+  "systems": [
+    "HyperAlloc",
+    "HyperAlloc+Memtis"
+  ],
+  "applications": {
+    "memcached": {
+      "display_name": "Memcached",
+      "curves": {
+        "HyperAlloc": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            5,
+            6.0
+          ],
+          [
+            10,
+            15.0
+          ],
+          [
+            18,
+            32.0
+          ],
+          [
+            28,
+            62.0
+          ],
+          [
+            36,
+            96.0
+          ]
+        ],
+        "HyperAlloc+Memtis": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            5,
+            2.0
+          ],
+          [
+            10,
+            5.5
+          ],
+          [
+            16,
+            12.0
+          ],
+          [
+            24,
+            24.0
+          ],
+          [
+            32,
+            43.0
+          ]
+        ]
+      }
+    },
+    "cassandra": {
+      "display_name": "Cassandra",
+      "curves": {
+        "HyperAlloc": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            5,
+            4.0
+          ],
+          [
+            10,
+            15.0
+          ],
+          [
+            16,
+            36.0
+          ],
+          [
+            22,
+            66.0
+          ],
+          [
+            27,
+            84.0
+          ],
+          [
+            30,
+            90.0
+          ]
+        ],
+        "HyperAlloc+Memtis": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            5,
+            2.5
+          ],
+          [
+            10,
+            8.0
+          ],
+          [
+            16,
+            20.0
+          ],
+          [
+            22,
+            36.0
+          ],
+          [
+            28,
+            55.0
+          ]
+        ]
+      }
+    }
+  },
+  "metric_note": "P95 latency slowdown (%) for both the supplied baselines and reviewer-run Chameleon measurements. The baseline metric label was corrected to P95 at the author's direction; numerical baseline values are unchanged."
+}

@@ -1,0 +1,241 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.tools.nodetool.stats;
+
+import java.io.PrintStream;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.cassandra.io.util.FileUtils;
+import org.apache.cassandra.schema.SchemaConstants;
+import org.apache.cassandra.utils.FBUtilities;
+
+public class TableStatsPrinter<T extends StatsHolder>
+{
+    public static <T extends StatsHolder> StatsPrinter<T> from(String format, boolean sorted)
+    {
+        switch (format)
+        {
+            case "json":
+                return new StatsPrinter.JsonPrinter<T>();
+            case "yaml":
+                return new StatsPrinter.YamlPrinter<T>();
+            default:
+                if (sorted)
+                    return (StatsPrinter<T>) new SortedDefaultPrinter();
+                else
+                    return (StatsPrinter<T>) new DefaultPrinter();
+        }
+    }
+
+    /**
+     * A StatsPrinter to print stats in a keyspace-centric way, nesting stats for each table under their parent keyspaces.
+     */
+    private static class DefaultPrinter implements StatsPrinter<TableStatsHolder>
+    {
+        @Override
+        public void print(TableStatsHolder data, PrintStream out)
+        {
+            if (data.numberOfTables == 0)
+                return;
+
+            out.println("Total number of tables: " + data.numberOfTables);
+            out.println("----------------");
+
+            List<StatsKeyspace> keyspaces = data.keyspaces;
+            for (StatsKeyspace keyspace : keyspaces)
+            {
+                // print each keyspace's information
+                out.println("Keyspace: " + keyspace.name);
+                out.println("\tRead Count: " + keyspace.readCount);
+                out.println("\tRead Latency: " + FBUtilities.prettyPrintLatency(keyspace.readLatency()));
+                out.println("\tWrite Count: " + keyspace.writeCount);
+                out.println("\tWrite Latency: " + FBUtilities.prettyPrintLatency(keyspace.writeLatency()));
+                out.println("\tPending Flushes: " + keyspace.pendingFlushes);
+                out.println("\tSpace used (live): " + formatDataSize(keyspace.spaceUsedLive, data.humanReadable));
+                out.println("\tSpace used (total): " + formatDataSize(keyspace.spaceUsedTotal, data.humanReadable));
+
+                // print each table's information
+                List<StatsTable> tables = keyspace.tables;
+                if (tables.size() == 0)
+                    continue;
+
+                for (StatsTable table : tables)
+                {
+                    printStatsTable(table, table.tableName, "\t\t", data.humanReadable, out);
+                }
+                out.println("----------------");
+            }
+        }
+
+        protected void printStatsTable(StatsTable table, String tableDisplayName, String indent, boolean humanReadable, PrintStream out)
+        {
+            out.println(indent + "Table" + (table.isIndex ? " (index): " : ": ") + tableDisplayName);
+            out.println(indent + "SSTable count: " + table.sstableCount);
+            out.println(indent + "Old SSTable count: " + table.oldSSTableCount);
+            out.println(indent + "Max SSTable size: " + formatDataSize(table.maxSSTableSize, humanReadable));
+            if (table.twcs != null)
+                out.println(indent + "SSTables Time Window: " + table.twcs);
+            if (table.isLeveledSstable)
+            {
+                out.println(indent + "SSTables in each level: [" + String.join(", ",
+                                                                               table.sstablesInEachLevel) + "]");
+                out.println(indent + "SSTable bytes in each level: [" + String.join(", ",
+                                                                                    table.sstableBytesInEachLevel) + "]");
+            }
+
+            if (table.isUCSSstable)
+            {
+                out.println(indent + "Average token space for SSTables in each level: [" + String.join(", ",
+                        table.sstableAvgTokenSpaceInEachLevel) + "]");
+                out.println(indent + "Maximum density threshold for SSTables in each level: [" + String.join(", ",
+                        table.sstableMaxDensityThresholdInEachLevel) + "]");
+                out.println(indent + "Average SSTable size in each level: [" + String.join(", ",
+                        table.sstableAvgSizeInEachLevel) + "]");
+                out.println(indent + "Average SSTable density in each level: [" + String.join(", ",
+                        table.sstableAvgDensityInEachLevel) + "]");
+                out.println(indent + "Average SSTable density to max threshold ratio in each level: [" + String.join(", ",
+                        table.sstableAvgDensityMaxDensityThresholdRatioInEachLevel) + "]");
+                out.println(indent + "Maximum SSTable density to max threshold ratio in each level: [" + String.join(", ",
+                        table.sstableMaxDensityMaxDensityThresholdRatioInEachLevel) + "]");
+            }
+
+            out.println(indent + "Space used (live): " + table.spaceUsedLive);
+            out.println(indent + "Space used (total): " + table.spaceUsedTotal);
+            out.println(indent + "Space used by snapshots (total): " + table.spaceUsedBySnapshotsTotal);
+
+            if (table.offHeapUsed)
+                out.println(indent + "Off heap memory used (total): " + table.offHeapMemoryUsedTotal);
+            out.println(indent + "SSTable Compression Ratio: " + FBUtilities.prettyPrintRatio(table.sstableCompressionRatio));
+            out.println(indent + "Number of partitions (estimate): " + table.numberOfPartitionsEstimate);
+            out.println(indent + "Memtable cell count: " + table.memtableCellCount);
+            out.println(indent + "Memtable data size: " + table.memtableDataSize);
+
+            if (table.memtableOffHeapUsed)
+                out.println(indent + "Memtable off heap memory used: " + table.memtableOffHeapMemoryUsed);
+            out.println(indent + "Memtable switch count: " + table.memtableSwitchCount);
+            out.println(indent + "Speculative retries: " + table.speculativeRetries);
+            out.println(indent + "Local read count: " + table.localReadCount);
+            out.println(indent + "Local read latency: " + FBUtilities.prettyPrintLatency(table.localReadLatencyMs));
+            out.println(indent + "Local write count: " + table.localWriteCount);
+            out.println(indent + "Local write latency: " + FBUtilities.prettyPrintLatency(table.localWriteLatencyMs));
+
+            out.println(indent + "Local read/write ratio: " + FBUtilities.prettyPrintRatio(table.localReadWriteRatio));
+
+            out.println(indent + "Pending flushes: " + table.pendingFlushes);
+            out.println(indent + "Percent repaired: " + table.percentRepaired);
+
+            out.println(indent + "Bytes repaired: " + formatDataSize(table.bytesRepaired, humanReadable));
+            out.println(indent + "Bytes unrepaired: " + formatDataSize(table.bytesUnrepaired, humanReadable));
+            out.println(indent + "Bytes pending repair: " + formatDataSize(table.bytesPendingRepair, humanReadable));
+
+            out.println(indent + "Bloom filter false positives: " + table.bloomFilterFalsePositives);
+            out.println(indent + "Bloom filter false ratio: " + FBUtilities.prettyPrintRatio(table.bloomFilterFalseRatio));
+            out.println(indent + "Bloom filter space used: " + table.bloomFilterSpaceUsed);
+
+            if (table.bloomFilterOffHeapUsed)
+                out.println(indent + "Bloom filter off heap memory used: " + table.bloomFilterOffHeapMemoryUsed);
+            if (table.indexSummaryOffHeapUsed)
+                out.println(indent + "Index summary off heap memory used: " + table.indexSummaryOffHeapMemoryUsed);
+            if (table.compressionDictionariesUsed)
+                out.println(indent + "Compression dictionaries memory used: " + table.compressionDictionariesMemoryUsed);
+
+            if (table.compressionMetadataOffHeapUsed)
+                out.println(indent + "Compression metadata off heap memory used: " + table.compressionMetadataOffHeapMemoryUsed);
+
+            out.println(indent + "Compacted partition minimum bytes: " + formatDataSize(table.compactedPartitionMinimumBytes, humanReadable));
+            out.println(indent + "Compacted partition maximum bytes: " + formatDataSize(table.compactedPartitionMaximumBytes, humanReadable));
+            out.println(indent + "Compacted partition mean bytes: " + formatDataSize(table.compactedPartitionMeanBytes, humanReadable));
+            out.println(indent + "Average live cells per slice (last five minutes): " +
+                        FBUtilities.prettyPrintAverage(table.averageLiveCellsPerSliceLastFiveMinutes));
+            out.println(indent + "Maximum live cells per slice (last five minutes): " + table.maximumLiveCellsPerSliceLastFiveMinutes);
+            out.println(indent + "Average tombstones per slice (last five minutes): " +
+                        FBUtilities.prettyPrintAverage(table.averageTombstonesPerSliceLastFiveMinutes));
+            out.println(indent + "Maximum tombstones per slice (last five minutes): " + table.maximumTombstonesPerSliceLastFiveMinutes);
+            out.println(indent + "Droppable tombstone ratio: " + FBUtilities.prettyPrintRatio(table.droppableTombstoneRatio));
+            if (table.isInCorrectLocation != null)
+                out.println(indent + "SSTables in correct location: " + table.isInCorrectLocation);
+            if (table.topSizePartitions != null && !table.topSizePartitions.isEmpty())
+            {
+                out.printf(indent + "Top partitions by size (last update: %s):%n", table.topSizePartitionsLastUpdate);
+                int maxWidth = Math.max(table.topSizePartitions.keySet().stream().map(String::length).max(Integer::compareTo).get() + 3, 5);
+                out.printf(indent + "  %-" + maxWidth + "s %s%n", "Key", "Size");
+                for (Map.Entry<String, String> size : table.topSizePartitions.entrySet())
+                    out.printf(indent + "  %-" + maxWidth + "s %s%n", size.getKey(), size.getValue());
+            }
+
+            if (table.topTombstonePartitions != null && !table.topTombstonePartitions.isEmpty())
+            {
+                out.printf(indent + "Top partitions by tombstone count (last update: %s):%n", table.topTombstonePartitionsLastUpdate);
+                int maxWidth = Math.max(table.topTombstonePartitions.keySet().stream().map(String::length).max(Integer::compareTo).get() + 3, 5);
+                out.printf(indent + "  %-" + maxWidth + "s %s%n", "Key", "Count");
+                for (Map.Entry<String, Long> tombstonecnt : table.topTombstonePartitions.entrySet())
+                    out.printf(indent + "  %-" + maxWidth + "s %s%n", tombstonecnt.getKey(), tombstonecnt.getValue());
+            }
+
+            if (!SchemaConstants.isSystemKeyspace(table.keyspaceName) && table.saiTotalIndexCount > 0)
+            {
+                out.println(indent + "SAI local query latency (mean): " + FBUtilities.prettyPrintLatency(table.saiQueryLatencyMs));
+                out.println(indent + "SAI post-filtering latency (mean): " + FBUtilities.prettyPrintLatency(table.saiPostFilteringReadLatencyMs));
+                out.println(indent + "SAI space used (bytes): " + table.saiDiskUsedBytes);
+                out.println(indent + "SAI sstable indexes hit per query (mean): " + table.saiSSTableIndexesHit);
+                out.println(indent + "SAI index segments hit per query (mean): " + table.saiIndexSegmentsHit);
+                out.println(indent + "SAI rows filtered per query (mean): " + table.saiRowsFiltered);
+                out.println(indent + "SAI local query timeouts: " + table.saiTotalQueryTimeouts);
+                out.println(indent + "SAI queryable/total indexes: " + table.saiTotalQueryableIndexRatio);
+            }
+
+            out.println("");
+        }
+
+        private String formatDataSize(long bytes, boolean humanReadable)
+        {
+            return humanReadable ? FileUtils.stringifyFileSize(bytes) : Long.toString(bytes);
+        }
+    }
+
+    /**
+     * A StatsPrinter to print stats in a sorted, table-centric way.
+     */
+    private static class SortedDefaultPrinter extends DefaultPrinter
+    {
+        @Override
+        public void print(TableStatsHolder data, PrintStream out)
+        {
+            List<StatsTable> tables = data.getSortedFilteredTables();
+
+            if (tables.size() == 0)
+                return;
+
+            String totalTablesSummary = String.format("Total number of tables: %d", data.numberOfTables);
+            if (data.top > 0)
+            {
+                int k = (data.top <= data.numberOfTables) ? data.top : data.numberOfTables;
+                totalTablesSummary += String.format(" (showing top %d by %s)", k, data.sortKey);
+            }
+            out.println(totalTablesSummary);
+            out.println("----------------");
+            for (StatsTable table : tables)
+            {
+                printStatsTable(table, table.keyspaceName + "." + table.tableName, "\t", data.humanReadable, out);
+            }
+            out.println("----------------");
+        }
+    }
+}

@@ -1,0 +1,12 @@
+# Real software RDMA for the isolated Hermit L1/L2 test platform.
+# Built in so minimal initramfs images do not require a module dependency tree.
+CONFIG_NET=y
+CONFIG_INET=y
+CONFIG_IPV6=y
+CONFIG_PCI=y
+CONFIG_VIRTIO_NET=y
+CONFIG_INFINIBAND=y
+CONFIG_INFINIBAND_USER_ACCESS=y
+CONFIG_INFINIBAND_ADDR_TRANS=y
+CONFIG_RDMA_RXE=y
+CONFIG_RDMA_SIW=y

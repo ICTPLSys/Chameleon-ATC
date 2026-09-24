@@ -1,0 +1,9 @@
+client/*.ko
+client/*.o
+client/*.mod
+client/*.mod.c
+client/.*.cmd
+client/.*.o.d
+client/Module.symvers
+client/modules.order
+server/rswap-server

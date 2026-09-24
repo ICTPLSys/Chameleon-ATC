@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "kind": "historical-measured-isolated-all-local",
+  "normalization": "Single saved isolated all-local observation with PEBS and HHH enabled; available for standalone Fig9. Prefer a new three-run Fig78 mean when present.",
+  "applications": {
+    "memcached": {
+      "vm_memory_mib": 73728,
+      "performance": {
+        "runtime_seconds": null,
+        "cost": 100.1001001001001,
+        "cost_metric": "inverse completed-request throughput; fixed offered rate can mask capacity changes",
+        "throughput_ops": 9990.0,
+        "mean_latency_us": 195.004476,
+        "p95_us": 335.359,
+        "p99_us": 1278.975,
+        "load_valid": "1",
+        "schedule_complete": "1"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-memcached-b73728-pin2-memcached-local/report.json"
+    },
+    "liblinear": {
+      "vm_memory_mib": 65536,
+      "performance": {
+        "runtime_seconds": 683.4200000000001,
+        "cost": 683.4200000000001,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-liblinear-b65536-pin2-liblinear-local/report.json"
+    },
+    "pvc": {
+      "vm_memory_mib": 32768,
+      "performance": {
+        "runtime_seconds": 112.87,
+        "cost": 112.87,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-pvc-b32768-pin2-pvc-local/report.json"
+    },
+    "graphchi": {
+      "vm_memory_mib": 49152,
+      "performance": {
+        "runtime_seconds": 971.26,
+        "cost": 971.26,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-graphchi-b49152-pin2-spacefix1-graphchi-local/report.json"
+    },
+    "graph500": {
+      "vm_memory_mib": 32768,
+      "performance": {
+        "runtime_seconds": 171.92000000000002,
+        "cost": 171.92000000000002,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-graph500-b32768-pin2-csr32-graph500-local/report.json"
+    },
+    "xsbench": {
+      "vm_memory_mib": 81920,
+      "performance": {
+        "runtime_seconds": 70.27,
+        "cost": 70.27,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict"
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-xsbench-b81920-xsbench-local/report.json"
+    },
+    "spark-kmeans": {
+      "vm_memory_mib": 32768,
+      "performance": {
+        "runtime_seconds": 30.68,
+        "cost": 30.68,
+        "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+        "spark_initialization_seconds": 16.778,
+        "spark_iterations_seconds": 6.6,
+        "spark_within_set_sse": 3.023192774323582e+18
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-spark-kmeans-b32768-spark-kmeans-local/report.json"
+    },
+    "cassandra": {
+      "vm_memory_mib": 90112,
+      "performance": {
+        "runtime_seconds": 43.106,
+        "cost": 43.106,
+        "cost_metric": "YCSB fixed-count read-phase runtime",
+        "throughput_ops": 23198.626641302835,
+        "mean_latency_us": 640.632432,
+        "p95_us": 962.0,
+        "p99_us": 1247.0
+      },
+      "tracking_profile": {
+        "sampling": 65536,
+        "cooling": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "source_report": "f78freq-cassandra-b90112-pin2-cassandra-local/report.json"
+    }
+  }
+}

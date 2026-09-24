@@ -1,0 +1,88 @@
+{
+  "generated_utc": "2026-09-19T22:56:08.397766+00:00",
+  "scope": "HyperAlloc port and optional guest PEBS MEMINFO prerequisite; no Chameleon tracker or Hermit",
+  "linux_upstream_version": "6.18",
+  "linux_tarball_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.tar.xz",
+  "linux_pristine_local_import": "eaa5dffd5d37c1b6d41f929644af45b96bc3d224",
+  "hyperalloc_guest_source": "628c12d183414a447e14a30414b1ee6158bf37f6",
+  "hyperalloc_qemu_base": "ad01356cf917631416ea518a40f4cb4ce2871d19",
+  "llfree_base": "9f10f948556c530b7b8a8a3cab605591c8d51110",
+  "sources": {
+    "linux": {
+      "head": "68fd699690106bf1fd02b4559117ca178c99487e",
+      "status": ""
+    },
+    "qemu": {
+      "head": "90014b8e1f3d7afb3cd27c919571b4829a584ca6",
+      "status": ""
+    },
+    "llfree-c": {
+      "head": "893d745e7650659274c04a19743bc6d7a189be05",
+      "status": ""
+    }
+  },
+  "releases": {
+    "host": "6.18.0-hyperalloc-host",
+    "guest": "6.18.0-hyperalloc"
+  },
+  "compilers": {
+    "gcc": "gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "clang": "clang version 16.0.6 (git@github.com:OpenCilk/opencilk-project.git 3f1a18993b8087b1b06c7e891dceec0c86016197)"
+  },
+  "physical_test_host": "Linux cpuserver72 6.18.31-bf3+ #1 SMP PREEMPT_DYNAMIC Wed Jun 17 14:01:04 CST 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "artifacts": [
+    {
+      "path": "downloads/linux-6.18.tar.xz",
+      "bytes": 154309096,
+      "sha256": "9106a4605da9e31ff17659d958782b815f9591ab308d03b0ee21aad6c7dced4b"
+    },
+    {
+      "path": "configs/guest.config",
+      "bytes": 129096,
+      "sha256": "b6bad7623f62c1824af7712519cfead3dd22a892439271c0346ce4dbcbaf29e7"
+    },
+    {
+      "path": "configs/host.config",
+      "bytes": 147238,
+      "sha256": "75a099726fa90eef0623433dff513b374df646ec23cf2c7a059186420555738b"
+    },
+    {
+      "path": "build/guest/arch/x86/boot/bzImage",
+      "bytes": 10740736,
+      "sha256": "0cfcde384fd12bc773e93129a7a906109edc46ec2f947237e85ac6b05f2b9daf"
+    },
+    {
+      "path": "build/host/arch/x86/boot/bzImage",
+      "bytes": 14701568,
+      "sha256": "a77c6363d9404292f18e10554bc5836784f72994023980168700b3d8f2ee214e"
+    },
+    {
+      "path": "build/qemu/qemu-system-x86_64",
+      "bytes": 48862144,
+      "sha256": "4b335d059355d37281c3aaecae8548b8da6990c76aeaaec07703aa324f57479f"
+    },
+    {
+      "path": "build/guest-initramfs.cpio.gz",
+      "bytes": 4108585,
+      "sha256": "5414646d84495543e36b1214b60d444c365eb6c2d8388e00696af3087b6498ba"
+    },
+    {
+      "path": "build/host-initramfs.cpio.gz",
+      "bytes": 33381401,
+      "sha256": "9fd58b50c9b8f30c8ea4868ca7cb1484366f82d1c5e554ae9806d10d512247a4"
+    }
+  ],
+  "core_vm_reports": {
+    "manual": "results/vm-manual/report.json",
+    "auto": "results/vm-auto/report.json",
+    "failure": "results/vm-failure/report.json",
+    "nested": "results/vm-nested/report.json"
+  },
+  "core_vm_reports_baseline_sources": {
+    "linux": "6cff96baebb6e2f9880468e0b5c6b8f12cdd785f",
+    "qemu": "e37a6541f94a48b250b7a37a2abb41ad2f23ba71",
+    "llfree-c": "893d745e7650659274c04a19743bc6d7a189be05"
+  },
+  "pebs_status": "results/pebs-status.json",
+  "runtime_kvm_candidate": "build/runtime-kvm-modules/manifest.json"
+}

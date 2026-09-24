@@ -1,0 +1,438 @@
+diff --git a/Documentation/virt/kvm/x86/hyperalloc-pebs-meminfo.rst b/Documentation/virt/kvm/x86/hyperalloc-pebs-meminfo.rst
+new file mode 100644
+index 0000000..e3d19e5
+--- /dev/null
++++ b/Documentation/virt/kvm/x86/hyperalloc-pebs-meminfo.rst
+@@ -0,0 +1,113 @@
++HyperAlloc fixed MEMINFO PEBS extension
++======================================
++
++This is a private research ABI, not an upstream KVM interface.  It preserves
++the ordinary perf_event_open() userspace ABI but requires matching host KVM,
++VMM, and guest kernel changes.  It is off by default.  Existing virtual
++machines retain their existing PEBS behavior.
++
++Host requirements and opt-in
++----------------------------
++
++KVM_CHECK_EXTENSION(KVM_CAP_HYPERALLOC_PEBS_MEMINFO), private capability
++number 0x48410001, returns 1 only on Intel Ice Lake server/D (family 6,
++model 106/108) with enabled PMU and EPT, an initialized host perf PMU newer
++than version 4 with PEBS EPT support, CPU PEBS/PDCM features, and native
++IA32_PERF_CAPABILITIES reporting format 4 and architectural baseline PEBS.
++On these two CPU models, perf enables PEBS isolation for PMU versions newer
++than 4; the older-model microcode isolation quirks do not apply.  Otherwise
++the query returns 0.  This check uses the existing host perf capability ABI,
++so the host-side change can also be built as matching KVM modules.
++
++Before creating any vCPU, userspace enables the VM capability with
++KVM_ENABLE_CAP, flags=0, args[0]=1, and args[1..3]=0.  Repeating that request
++before vCPU creation is harmless.  Unsupported hosts return EOPNOTSUPP;
++late requests return EBUSY.  Invalid arguments, a disabled VM PMU, or an
++existing PMU event filter return EINVAL.  Once enabled, installing any
++KVM_SET_PMU_EVENT_FILTER or disabling the VM PMU also returns EINVAL.
++Filter installation and extension enablement use the same VM lock.
++
++Userspace must expose native Ice Lake CPU identity, DS, DTES64, PDCM, and
++PEBS format 4 to the guest.  QEMU 8.2 requires
++``-cpu host,migratable=off,pmu=on`` to retain the format bits, together with
++the matching ``-accel kvm,hyperalloc-pebs-meminfo=on`` extension.  This ABI
++does not add migration support; do not migrate these VMs to an unverified
++host.  An unmodified guest kernel must not be used with this opt-in.
++
++Wire contract
++-------------
++
++The read-only vendor MSR 0x4b564d10 returns 1 when this VM opted in and the
++guest PMU exposes format 4.  Reads without opt-in fail; all writes fail,
++including userspace KVM_SET_MSRS.  Version 1 means that every GP PEBS record
++contains exactly 64 bytes: the 32-byte ``struct pebs_basic`` followed by the
++32-byte ``struct pebs_meminfo``.  The hardware record's MEMINFO group bit
++is set.  The record contains the eventing IP and linear memory address.
++
++The host's existing perf code programs its GP PEBS counters with ADAPTIVE
++enabled.  For this private protocol that behavior is intentional: KVM
++always switches IA32_PEBS_DATA_CFG to MEMINFO (bit 0) on guest entry and
++restores the host's configuration on exit.  Initialization and PMU reset/
++refresh preserve that fixed value.  Neither the guest nor KVM_SET_MSRS
++can change IA32_PEBS_DATA_CFG through this extension.
++
++Guest RDMSR and WRMSR instructions for IA32_PEBS_DATA_CFG are unsupported
++and inject #GP with KVM's default ignore_msrs=0.  Userspace MSR ioctls have
++a separate, existing compatibility rule: because DATA_CFG is present in
++KVM's advertised save/restore MSR list, KVM_GET_MSRS succeeds with value 0,
++and KVM_SET_MSRS with value 0 succeeds as a no-op.  This zero is a synthetic
++compatibility value, not the internal fixed MEMINFO configuration (1).
++All nonzero KVM_SET_MSRS values are rejected with ignore_msrs=0, including
++MEMINFO, GP/XMM/LBR group requests and all-bits requests.  The internal
++configuration remains 1 after both the zero no-op and rejected writes.
++Tests must distinguish these userspace ioctls from guest instructions.
++
++The compatibility behavior is implemented by kvm_do_msr_access(): a
++backend KVM_MSR_RET_UNSUPPORTED result is converted to a successful
++zero-valued read or zero-valued write only for host-initiated accesses to
++advertised MSRs.  intel_is_valid_msr() rejects DATA_CFG in this private
++mode, so this compatibility path does not call its state-changing setter.
++The extension preserves this upstream behavior; it does not depend on
++ignore_msrs=1, and validation uses ignore_msrs=0.
++
++Architectural PERF_CAP_PEBS_BASELINE stays hidden.  Guest event-select
++ADAPTIVE bits, fixed-counter PEBS, and fixed-counter ADAPTIVE bits remain
++reserved.  Precise guest events whose constraints require fixed counters are rejected
++when perf validates the event, before any unsupported PEBS_ENABLE write.
++Ordinary non-PEBS fixed counters keep working.  No GP-register,
++XMM-register, counter-snapshot, or LBR record groups are enabled.  Existing
++non-PEBS LBR virtualization is unchanged.  In particular, MEMINFO cannot
++copy host LBR state into guest memory.  No userspace PMU event filter may
++coexist with this protocol because adaptive hardware sampling changes the
++set of effective events.
++
++The guest detects KVM, Ice Lake identity, format 4 with baseline disabled,
++and this read-only version MSR before changing its buffer record size.
++It retains the normal GP PEBS event constraints and reuses the existing
++format-4 decoder.  It does not enable PEBS_ALL or adaptive configuration.
++PERF_SAMPLE_IP and PERF_SAMPLE_ADDR therefore keep their ordinary perf
++ABI.  Physical addresses, when requested and permitted by perf policy,
++are guest physical addresses.  Raw 0x20d1 is Ice Lake's
++MEM_LOAD_RETIRED.L3_MISS and needs no load-latency threshold MSR.
++
++Validation and deployment boundary
++----------------------------------
++
++Build both kernels and run the userspace KVM control tests, including
++default-off behavior, malformed requests, both filter ordering cases,
++readonly discovery, and rejection of DATA_CFG/ADAPTIVE/fixed PEBS writes.
++For DATA_CFG, require the userspace zero-read/zero-write-no-op behavior
++described above and rejection of every nonzero write.  Verify guest #GP
++behavior separately with actual guest instructions when reporting it as
++a runtime result.
++Positive hardware acceptance additionally requires observing real
++PERF_SAMPLE_IP and PERF_SAMPLE_ADDR records for raw 0x20d1 whose addresses
++fall in the probe workload, while the guest still reports baseline=0.
++Check the guest boot message for ``PEBS fmt4+-hyperalloc-meminfo-v1``.
++
++An ordinary nested host has baseline disabled and PMU version 2; it cannot
++establish these hardware preconditions.  Its expected result is capability
++0, and it can validate only rejection paths and default guest behavior.
++Compiling the host kernel or passing nested tests does not establish that
++the positive physical-host sampling path works.  This patch does not
++deploy or reboot the physical host.
+diff --git a/arch/x86/events/intel/core.c b/arch/x86/events/intel/core.c
+index fe65be0..e3f3f0e 100644
+--- a/arch/x86/events/intel/core.c
++++ b/arch/x86/events/intel/core.c
+@@ -4773,15 +4773,23 @@ static struct event_constraint *
+ icl_get_event_constraints(struct cpu_hw_events *cpuc, int idx,
+ 			  struct perf_event *event)
+ {
++	struct event_constraint *c;
++	bool meminfo_guest = x86_pmu.flags & PMU_FL_HYPERALLOC_PEBS_MEMINFO;
++
+ 	/*
+ 	 * Fixed counter 0 has less skid.
+ 	 * Force instruction:ppp in Fixed counter 0
+ 	 */
+ 	if ((event->attr.precise_ip == 3) &&
+ 	    constraint_match(&fixed0_constraint, event->hw.config))
+-		return &fixed0_constraint;
++		return meminfo_guest ? &emptyconstraint : &fixed0_constraint;
+ 
+-	return hsw_get_event_constraints(cpuc, idx, event);
++	c = hsw_get_event_constraints(cpuc, idx, event);
++	/* Reject at event validation, before an unsupported PEBS_ENABLE write. */
++	if (meminfo_guest && event->attr.precise_ip &&
++	    (c->idxmsk64 & ~GENMASK_ULL(INTEL_PMC_IDX_FIXED - 1, 0)))
++		return &emptyconstraint;
++	return c;
+ }
+ 
+ static struct event_constraint *
+diff --git a/arch/x86/events/intel/ds.c b/arch/x86/events/intel/ds.c
+index 01bc59e..1ddc483 100644
+--- a/arch/x86/events/intel/ds.c
++++ b/arch/x86/events/intel/ds.c
+@@ -5,7 +5,10 @@
+ #include <linux/sched/clock.h>
+ 
+ #include <asm/cpu_entry_area.h>
++#include <asm/cpu_device_id.h>
+ #include <asm/debugreg.h>
++#include <asm/hypervisor.h>
++#include <asm/kvm_para.h>
+ #include <asm/perf_event.h>
+ #include <asm/tlbflush.h>
+ #include <asm/insn.h>
+@@ -2674,6 +2677,28 @@ static void intel_pmu_drain_pebs_icl(struct pt_regs *iregs, struct perf_sample_d
+  * PEBS probe and setup
+  */
+ 
++/*
++ * This private KVM protocol fixes the record at basic + MEMINFO.  It does
++ * not advertise architectural baseline PEBS: guest DATA_CFG, ADAPTIVE and
++ * fixed-counter PEBS remain unavailable.  In particular, do not run the
++ * adaptive configuration code or expand PMU_FL_PEBS_ALL for this protocol.
++ */
++static bool __init kvm_pebs_meminfo_available(void)
++{
++	static const struct x86_cpu_id cpus[] __initconst = {
++		X86_MATCH_VFM(INTEL_ICELAKE_X, NULL),
++		X86_MATCH_VFM(INTEL_ICELAKE_D, NULL),
++		{}
++	};
++	u64 abi;
++
++	return hypervisor_is_type(X86_HYPER_KVM) && x86_match_cpu(cpus) &&
++		x86_pmu.intel_cap.pebs_format == 4 &&
++		!x86_pmu.intel_cap.pebs_baseline &&
++		!rdmsrq_safe(MSR_KVM_HYPERALLOC_PEBS_MEMINFO, &abi) &&
++		abi == KVM_HYPERALLOC_PEBS_MEMINFO_ABI;
++}
++
+ void __init intel_pebs_init(void)
+ {
+ 	/*
+@@ -2764,6 +2789,14 @@ void __init intel_pebs_init(void)
+ 					  PERF_SAMPLE_TRANSACTION |
+ 					  PERF_SAMPLE_REGS_USER |
+ 					  PERF_SAMPLE_REGS_INTR);
++				if (kvm_pebs_meminfo_available()) {
++					x86_pmu.flags |= PMU_FL_HYPERALLOC_PEBS_MEMINFO;
++					x86_pmu.pebs_record_size +=
++						sizeof(struct pebs_meminfo);
++					x86_pmu.large_pebs_flags |=
++						PERF_SAMPLE_ADDR | PERF_SAMPLE_DATA_SRC;
++					pebs_qual = "-hyperalloc-meminfo-v1";
++				}
+ 			}
+ 			pr_cont("PEBS fmt%d%c%s, ", format, pebs_type, pebs_qual);
+ 
+diff --git a/arch/x86/events/perf_event.h b/arch/x86/events/perf_event.h
+index 2b96938..d46786b 100644
+--- a/arch/x86/events/perf_event.h
++++ b/arch/x86/events/perf_event.h
+@@ -1082,6 +1082,7 @@ do {									\
+ #define PMU_FL_RETIRE_LATENCY	0x200 /* Support Retire Latency in PEBS */
+ #define PMU_FL_BR_CNTR		0x400 /* Support branch counter logging */
+ #define PMU_FL_DYN_CONSTRAINT	0x800 /* Needs dynamic constraint */
++#define PMU_FL_HYPERALLOC_PEBS_MEMINFO 0x1000 /* Private KVM GP-only PEBS */
+ 
+ #define EVENT_VAR(_id)  event_attr_##_id
+ #define EVENT_PTR(_id) &event_attr_##_id.attr.attr
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+index 48598d0..ef8ed32 100644
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -1489,6 +1489,8 @@ struct kvm_arch {
+ 
+ 	bool bus_lock_detection_enabled;
+ 	bool enable_pmu;
++	/* Immutable after the first vCPU is created; private opt-in ABI. */
++	bool hyperalloc_pebs_meminfo;
+ 
+ 	u32 notify_window;
+ 	u32 notify_vmexit_flags;
+diff --git a/arch/x86/include/uapi/asm/kvm_para.h b/arch/x86/include/uapi/asm/kvm_para.h
+index a1efa79..67927c4 100644
+--- a/arch/x86/include/uapi/asm/kvm_para.h
++++ b/arch/x86/include/uapi/asm/kvm_para.h
+@@ -59,6 +59,10 @@
+ #define MSR_KVM_ASYNC_PF_ACK	0x4b564d07
+ #define MSR_KVM_MIGRATION_CONTROL	0x4b564d08
+ 
++/* Private, read-only: format-4 basic + MEMINFO records, exactly 64 bytes. */
++#define MSR_KVM_HYPERALLOC_PEBS_MEMINFO	0x4b564d10
++#define KVM_HYPERALLOC_PEBS_MEMINFO_ABI	1
++
+ struct kvm_steal_time {
+ 	__u64 steal;
+ 	__u32 version;
+diff --git a/arch/x86/kvm/pmu.c b/arch/x86/kvm/pmu.c
+index 487ad19..c93d5c1 100644
+--- a/arch/x86/kvm/pmu.c
++++ b/arch/x86/kvm/pmu.c
+@@ -29,6 +29,30 @@
+ /* Unadultered PMU capabilities of the host, i.e. of hardware. */
+ static struct x86_pmu_capability __read_mostly kvm_host_pmu;
+ 
++bool kvm_pmu_has_hyperalloc_pebs_meminfo(void)
++{
++	static const struct x86_cpu_id cpus[] = {
++		X86_MATCH_VFM(INTEL_ICELAKE_X, NULL),
++		X86_MATCH_VFM(INTEL_ICELAKE_D, NULL),
++		{}
++	};
++	u64 perf_cap;
++
++	/*
++	 * On ICX/D, perf sets ds_pebs from X86_FEATURE_PEBS, loads intel_cap
++	 * directly from this MSR, and sets pebs_no_isolation only for PMU v4
++	 * and earlier.  The older-model isolation quirks do not apply here.
++	 * Use the existing perf capability ABI so a matching KVM module can
++	 * be loaded without replacing the host perf implementation.
++	 */
++	return enable_pmu && tdp_enabled && x86_match_cpu(cpus) &&
++		kvm_host_pmu.version > 4 && kvm_host_pmu.pebs_ept &&
++		boot_cpu_has(X86_FEATURE_PEBS) && boot_cpu_has(X86_FEATURE_PDCM) &&
++		!rdmsrq_safe(MSR_IA32_PERF_CAPABILITIES, &perf_cap) &&
++		(perf_cap & PERF_CAP_PEBS_BASELINE) &&
++		(perf_cap & PERF_CAP_PEBS_FORMAT) == (4ULL << 8);
++}
++
+ /* KVM's PMU capabilities, i.e. the intersection of KVM and hardware support. */
+ struct x86_pmu_capability __read_mostly kvm_pmu_cap;
+ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_pmu_cap);
+@@ -1130,6 +1154,12 @@ int kvm_vm_ioctl_set_pmu_event_filter(struct kvm *kvm, void __user *argp)
+ 		goto cleanup;
+ 
+ 	mutex_lock(&kvm->lock);
++	/* Serialize both opt-in directions; adaptive sampling defeats filters. */
++	if (kvm->arch.hyperalloc_pebs_meminfo) {
++		mutex_unlock(&kvm->lock);
++		r = -EINVAL;
++		goto cleanup;
++	}
+ 	filter = rcu_replace_pointer(kvm->arch.pmu_event_filter, filter,
+ 				     mutex_is_locked(&kvm->lock));
+ 	mutex_unlock(&kvm->lock);
+diff --git a/arch/x86/kvm/pmu.h b/arch/x86/kvm/pmu.h
+index 5c3939e..5a0c819 100644
+--- a/arch/x86/kvm/pmu.h
++++ b/arch/x86/kvm/pmu.h
+@@ -43,6 +43,7 @@ struct kvm_pmu_ops {
+ };
+ 
+ void kvm_pmu_ops_update(const struct kvm_pmu_ops *pmu_ops);
++bool kvm_pmu_has_hyperalloc_pebs_meminfo(void);
+ 
+ static inline bool kvm_pmu_has_perf_global_ctrl(struct kvm_pmu *pmu)
+ {
+diff --git a/arch/x86/kvm/vmx/pmu_intel.c b/arch/x86/kvm/vmx/pmu_intel.c
+index de1d978..ea6bfa4 100644
+--- a/arch/x86/kvm/vmx/pmu_intel.c
++++ b/arch/x86/kvm/vmx/pmu_intel.c
+@@ -199,6 +199,8 @@ static bool intel_is_valid_msr(struct kvm_vcpu *vcpu, u32 msr)
+ 		ret = guest_cpu_cap_has(vcpu, X86_FEATURE_DS);
+ 		break;
+ 	case MSR_PEBS_DATA_CFG:
++		if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++			return false;
+ 		perf_capabilities = vcpu_get_perf_capabilities(vcpu);
+ 		ret = (perf_capabilities & PERF_CAP_PEBS_BASELINE) &&
+ 			((perf_capabilities & PERF_CAP_PEBS_FORMAT) > 3);
+@@ -413,6 +415,8 @@ static int intel_pmu_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+ 		pmu->ds_area = data;
+ 		break;
+ 	case MSR_PEBS_DATA_CFG:
++		if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++			return 1;
+ 		if (data & pmu->pebs_data_cfg_rsvd)
+ 			return 1;
+ 
+@@ -627,11 +631,16 @@ static void intel_pmu_init(struct kvm_vcpu *vcpu)
+ 	lbr_desc->records.nr = 0;
+ 	lbr_desc->event = NULL;
+ 	lbr_desc->msr_passthrough = false;
++	if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++		pmu->pebs_data_cfg = PEBS_DATACFG_MEMINFO;
+ }
+ 
+ static void intel_pmu_reset(struct kvm_vcpu *vcpu)
+ {
+ 	intel_pmu_release_guest_lbr_event(vcpu);
++	/* RESET and CPUID/PERF_CAPABILITIES refresh cannot change the layout. */
++	if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++		vcpu_to_pmu(vcpu)->pebs_data_cfg = PEBS_DATACFG_MEMINFO;
+ }
+ 
+ /*
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index c9c2aa6..c831f40 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -4212,6 +4212,9 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+ 			return 1;
+ 		break;
+ 
++	case MSR_KVM_HYPERALLOC_PEBS_MEMINFO:
++		/* Read-only even for userspace migration/restore operations. */
++		return 1;
+ 	case MSR_KVM_POLL_CONTROL:
+ 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
+ 			return 1;
+@@ -4567,6 +4570,15 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+ 
+ 		msr_info->data = vcpu->arch.pv_eoi.msr_val;
+ 		break;
++	case MSR_KVM_HYPERALLOC_PEBS_MEMINFO:
++		if (!vcpu->kvm->arch.hyperalloc_pebs_meminfo ||
++		    !vcpu_to_pmu(vcpu)->version ||
++		    !guest_cpu_cap_has(vcpu, X86_FEATURE_PDCM) ||
++		    (vcpu->arch.perf_capabilities & PERF_CAP_PEBS_FORMAT) !=
++		    (4ULL << 8))
++			return 1;
++		msr_info->data = KVM_HYPERALLOC_PEBS_MEMINFO_ABI;
++		break;
+ 	case MSR_KVM_POLL_CONTROL:
+ 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
+ 			return 1;
+@@ -5005,6 +5017,9 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
+ 	case KVM_CAP_PMU_CAPABILITY:
+ 		r = enable_pmu ? KVM_CAP_PMU_VALID_MASK : 0;
+ 		break;
++	case KVM_CAP_HYPERALLOC_PEBS_MEMINFO:
++		r = kvm_pmu_has_hyperalloc_pebs_meminfo();
++		break;
+ 	case KVM_CAP_DISABLE_QUIRKS2:
+ 		r = kvm_caps.supported_quirks;
+ 		break;
+@@ -6744,6 +6759,26 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
+ 		return -EINVAL;
+ 
+ 	switch (cap->cap) {
++	case KVM_CAP_HYPERALLOC_PEBS_MEMINFO:
++		r = -EINVAL;
++		if (cap->args[0] != 1 || cap->args[1] ||
++		    cap->args[2] || cap->args[3])
++			break;
++		r = -EOPNOTSUPP;
++		if (!kvm_pmu_has_hyperalloc_pebs_meminfo())
++			break;
++		mutex_lock(&kvm->lock);
++		r = -EBUSY;
++		if (kvm->created_vcpus)
++			goto pebs_meminfo_unlock;
++		r = -EINVAL;
++		if (!kvm->arch.enable_pmu || kvm->arch.pmu_event_filter)
++			goto pebs_meminfo_unlock;
++		kvm->arch.hyperalloc_pebs_meminfo = true;
++		r = 0;
++pebs_meminfo_unlock:
++		mutex_unlock(&kvm->lock);
++		break;
+ 	case KVM_CAP_DISABLE_QUIRKS2:
+ 		r = -EINVAL;
+ 		if (cap->args[0] & ~kvm_caps.supported_quirks)
+@@ -6893,7 +6928,9 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
+ 			break;
+ 
+ 		mutex_lock(&kvm->lock);
+-		if (!kvm->created_vcpus) {
++		if (!kvm->created_vcpus &&
++		    !(kvm->arch.hyperalloc_pebs_meminfo &&
++		      (cap->args[0] & KVM_PMU_CAP_DISABLE))) {
+ 			kvm->arch.enable_pmu = !(cap->args[0] & KVM_PMU_CAP_DISABLE);
+ 			r = 0;
+ 		}
+diff --git a/include/uapi/linux/kvm.h b/include/uapi/linux/kvm.h
+index 52f6000..9201dd8 100644
+--- a/include/uapi/linux/kvm.h
++++ b/include/uapi/linux/kvm.h
+@@ -931,6 +931,8 @@ struct kvm_enable_cap {
+ #define KVM_CAP_PPC_AIL_MODE_3 210
+ #define KVM_CAP_S390_MEM_OP_EXTENSION 211
+ #define KVM_CAP_PMU_CAPABILITY 212
++/* Private HyperAlloc research ABI; not an upstream KVM capability number. */
++#define KVM_CAP_HYPERALLOC_PEBS_MEMINFO 0x48410001
+ #define KVM_CAP_DISABLE_QUIRKS2 213
+ #define KVM_CAP_VM_TSC_CONTROL 214
+ #define KVM_CAP_SYSTEM_EVENT_DATA 215

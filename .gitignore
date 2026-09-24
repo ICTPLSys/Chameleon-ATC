@@ -1,0 +1,66 @@
+# Local VM state, builds, downloads, and experiment output
+/hyperalloc-6.18/build/
+/hyperalloc-6.18/downloads/
+/hyperalloc-6.18/results/
+/benchmarks/results/
+/ae/build/
+/ae/results/*
+!/ae/results/.gitkeep
+# Raw validation evidence contains local inventory and machine details.
+/ae/validation/
+
+# Large inputs and downloaded application distributions
+/benchmarks/dataset/
+/benchmarks/apps/_archives/
+/benchmarks/apps/spark-3.3.1-bin-hadoop3/
+/benchmarks/apps/apache-cassandra-5.0.1/
+/benchmarks/apps/ycsb-0.17.0/
+
+# Site-specific configuration and credentials
+/ae/config/host.json
+.env
+.env.*
+!.env.example
+!.env.sample
+.ssh/
+.netrc
+.pgpass
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_ecdsa
+id_ecdsa.pub
+known_hosts
+known_hosts.old
+authorized_keys
+access.json
+credentials.json
+*.qcow2
+*.iso
+*.log
+
+# Generated compilation and interpreter files
+__pycache__/
+*.pyc
+*.o
+*.ko
+*.mod
+*.mod.c
+.*.cmd
+Module.symvers
+modules.order
+.deps/
+CMakeFiles/
+CMakeCache.txt
+/benchmarks/memcached-trace-generator/build*/
+/benchmarks/vendor/HdrHistogram_c/build/
+
+# Local native build products
+/hyperalloc-6.18/tests/chameleon_swap_tracking
+/benchmarks/apps/metis/config.status
+/benchmarks/apps/metis/config.h
+/benchmarks/apps/metis/GNUmakefile
+*.a
+*.so
+*.so.*

@@ -1,0 +1,290 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.service.snapshot;
+
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+
+import com.google.common.util.concurrent.RateLimiter;
+
+import org.apache.commons.lang3.StringUtils;
+
+import org.apache.cassandra.config.CassandraRelevantProperties;
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.config.DurationSpec;
+import org.apache.cassandra.db.ColumnFamilyStore;
+import org.apache.cassandra.io.sstable.format.SSTableReader;
+import org.apache.cassandra.io.util.File;
+import org.apache.cassandra.schema.SchemaConstants;
+
+import static java.lang.String.format;
+import static org.apache.cassandra.schema.SchemaConstants.FILENAME_LENGTH;
+import static org.apache.cassandra.utils.FBUtilities.now;
+
+public class SnapshotOptions
+{
+    public static final String SKIP_FLUSH = "skipFlush";
+    public static final String TTL = "ttl";
+
+    // Allowed snapshot-name characters:  0-9  a-z  A-Z  -  _  .  +
+    // See the validation site in validateTag for the full rationale (an S3 safe-set subset, plus '+').
+    // Hyphen is placed last in the character class, so it stays literal and never becomes a range operator.
+    private static final Pattern SAFE_SNAPSHOT_NAME = Pattern.compile("[a-zA-Z0-9_.+-]+");
+
+    public final SnapshotType type;
+    public final String tag;
+    public final DurationSpec.IntSecondsBound ttl;
+    public final Instant creationTime;
+    public final boolean skipFlush;
+    public final boolean ephemeral;
+    public final String[] entities;
+    public final RateLimiter rateLimiter;
+    public final Predicate<SSTableReader> sstableFilter;
+    public final ColumnFamilyStore cfs;
+
+    private SnapshotOptions(Builder builder)
+    {
+        this.type = builder.type;
+        this.tag = builder.tag;
+        this.ttl = builder.ttl;
+        this.creationTime = builder.creationTime;
+        this.skipFlush = builder.skipFlush;
+        this.ephemeral = builder.ephemeral;
+        this.entities = builder.entities;
+        this.rateLimiter = builder.rateLimiter;
+        this.sstableFilter = builder.sstableFilter;
+        this.cfs = builder.cfs;
+    }
+
+    public static Builder systemSnapshot(String tag, SnapshotType type, String... entities)
+    {
+        return new Builder(tag, type, ssTableReader -> true, entities);
+    }
+
+    public static Builder systemSnapshot(String tag, SnapshotType type, Predicate<SSTableReader> sstableFilter, String... entities)
+    {
+        return new Builder(tag, type, sstableFilter, entities);
+    }
+
+    public static SnapshotOptions userSnapshot(String tag, String... entities)
+    {
+        return userSnapshot(tag, Collections.emptyMap(), entities);
+    }
+
+    public static SnapshotOptions userSnapshot(String tag, Map<String, String> options, String... entities)
+    {
+        Builder builder = new Builder(tag, SnapshotType.USER, ssTableReader -> true, entities).ttl(options.get(TTL));
+        if (Boolean.parseBoolean(options.getOrDefault(SKIP_FLUSH, Boolean.FALSE.toString())))
+            builder.skipFlush();
+        return builder.build();
+    }
+
+    public static String getSnapshotName(SnapshotType type, String tag, Instant creationTime)
+    {
+        // Diagnostic snapshots have very specific naming convention hence we are keeping it.
+        // Repair snapshots rely on snapshots having name of their repair session ids
+        if (type == SnapshotType.USER || type == SnapshotType.DIAGNOSTICS || type == SnapshotType.REPAIR)
+            return tag;
+        // System snapshots have the creation timestamp on the name
+        String snapshotName = format("%d-%s", creationTime.toEpochMilli(), type.label);
+        if (StringUtils.isNotBlank(tag))
+            snapshotName = snapshotName + '-' + tag;
+        return snapshotName;
+    }
+
+    public static class Builder
+    {
+        private final String tag;
+        private final String[] entities;
+        private DurationSpec.IntSecondsBound ttl;
+        private Instant creationTime;
+        private boolean skipFlush = false;
+        private boolean ephemeral = false;
+        private ColumnFamilyStore cfs;
+        private final Predicate<SSTableReader> sstableFilter;
+        private final SnapshotType type;
+        private RateLimiter rateLimiter;
+
+        public Builder(String tag, SnapshotType type, Predicate<SSTableReader> sstableFilter, String... entities)
+        {
+            this.tag = tag;
+            this.type = type;
+            this.entities = entities;
+            this.sstableFilter = sstableFilter;
+        }
+
+        public Builder ttl(String ttl)
+        {
+            if (ttl != null)
+                this.ttl = new DurationSpec.IntSecondsBound(ttl);
+
+            return this;
+        }
+
+        public Builder ttl(DurationSpec.IntSecondsBound ttl)
+        {
+            this.ttl = ttl;
+            return this;
+        }
+
+        public Builder creationTime(String creationTime)
+        {
+            if (creationTime != null)
+            {
+                try
+                {
+                    return creationTime(Long.parseLong(creationTime));
+                }
+                catch (Exception ex)
+                {
+                    throw new RuntimeException("Unable to parse creation time from " + creationTime);
+                }
+            }
+
+            return this;
+        }
+
+        public Builder creationTime(Instant creationTime)
+        {
+            this.creationTime = creationTime;
+            return this;
+        }
+
+        public Builder creationTime(long creationTime)
+        {
+            return creationTime(Instant.ofEpochMilli(creationTime));
+        }
+
+        public Builder skipFlush()
+        {
+            skipFlush = true;
+            return this;
+        }
+
+        public Builder ephemeral()
+        {
+            ephemeral = true;
+            return this;
+        }
+
+        public Builder cfs(ColumnFamilyStore cfs)
+        {
+            this.cfs = cfs;
+            return this;
+        }
+
+        public Builder rateLimiter(RateLimiter rateLimiter)
+        {
+            this.rateLimiter = rateLimiter;
+            return this;
+        }
+
+        public SnapshotOptions build()
+        {
+            validateTag(tag);
+            validateTTL(ephemeral, ttl);
+
+            if (rateLimiter == null)
+                rateLimiter = DatabaseDescriptor.getSnapshotRateLimiter();
+
+            return new SnapshotOptions(this);
+        }
+
+        private void validateTag(String tag)
+        {
+            if (tag == null || tag.isEmpty())
+                throw new IllegalArgumentException("You must supply a snapshot name.");
+
+            if (tag.contains(File.pathSeparator()))
+            {
+                throw new IllegalArgumentException("Snapshot name cannot contain " + File.pathSeparator());
+            }
+
+            if (tag.equals(".") || tag.equals(".."))
+            {
+                throw new IllegalArgumentException("Snapshot name '" + tag + "' is reserved");
+            }
+
+            if (!CassandraRelevantProperties.SNAPSHOT_NAME_VALIDATION.getBoolean())
+                return;
+
+            // Pre-generate snapshot name for the sake of the validation.
+            // getSnapshotName logic does not return raw "tag" as snapshot name every time,
+            // it e.g. prepends timestamp and type for system snapshots, and we need to validate it as a whole.
+            // If, for example, tag would be less than max allowed FILENAME_LENGTH,
+            // we might in fact produce a snapshot name longer than FILENAME_LENGTH if we prepended a timestamp to it.
+            String resolvedSnapshotName = SnapshotOptions.getSnapshotName(type, tag, now());
+
+            // the length of valid snapshot name has to be less than or equal to FILENAME_LEGTH - that is 255 -
+            // we are following the max length as it is in SchemaConstants for table name.
+            if (resolvedSnapshotName.length() > SchemaConstants.FILENAME_LENGTH)
+            {
+                throw new IllegalArgumentException(format("Snapshot name must not be more than %d characters long for " +
+                                                          "resolved snapshot name (got %d characters for \"%s\")",
+                                                          FILENAME_LENGTH, resolvedSnapshotName.length(), resolvedSnapshotName));
+            }
+
+            // Allowed characters are a conservative subset of the AWS S3 "Safe characters" set
+            // (https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html#object-key-guidelines):
+            //   0-9  a-z  A-Z  -  _  .
+            // plus '+', which is not an S3 "Safe character" but can legitimately appear in system
+            // snapshot names via version build metadata (e.g. an upgrade snapshot "<millis>-upgrade-5.0.4+build-...").
+            // The remaining S3-safe characters (! * ' ( )) are intentionally excluded as they are
+            // shell-significant and error-prone in paths, and the path separator '/' is excluded too,
+            // which is what blocks traversal attempts such as "../../mysnapshot"
+            if (!SAFE_SNAPSHOT_NAME.matcher(resolvedSnapshotName).matches())
+            {
+                throw new IllegalArgumentException("Snapshot name contains illegal characters: " + resolvedSnapshotName + ". " +
+                                                   "Allowed characters must match the pattern: " + SAFE_SNAPSHOT_NAME.pattern() +
+                                                   " with a maximum of length of " + FILENAME_LENGTH + " characters.");
+            }
+        }
+
+        private void validateTTL(boolean ephemeral, DurationSpec.IntSecondsBound ttl)
+        {
+            if (ttl != null)
+            {
+                int minAllowedTtlSecs = CassandraRelevantProperties.SNAPSHOT_MIN_ALLOWED_TTL_SECONDS.getInt();
+                if (ttl.toSeconds() < minAllowedTtlSecs)
+                    throw new IllegalArgumentException(format("ttl for snapshot must be at least %d seconds", minAllowedTtlSecs));
+            }
+
+            if (ephemeral && ttl != null)
+                throw new IllegalStateException(format("can not take ephemeral snapshot (%s) while ttl is specified too", tag));
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "CreateSnapshotOptions{" +
+               "type=" + type +
+               ", tag='" + tag + '\'' +
+               ", ttl=" + ttl +
+               ", creationTime=" + creationTime +
+               ", skipFlush=" + skipFlush +
+               ", ephemeral=" + ephemeral +
+               ", entities=" + Arrays.toString(entities) +
+               '}';
+    }
+}

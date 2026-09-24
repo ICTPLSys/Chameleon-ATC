@@ -1,0 +1,130 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set_source_files_properties(
+  ${OBJECT_CACHE_PERSISTENCE_THRIFT_FILES}
+  PROPERTIES GENERATED TRUE
+)
+
+add_library (cachelib_cachebench
+  ./cache/Cache.cpp
+  ./cache/components/Components.cpp
+  ./cache/components/FlashComponent.cpp
+  ./cache/components/RAMComponent.cpp
+  ./cache/TimeStampTicker.cpp
+  ./consistency/LogEventStream.cpp
+  ./consistency/ShortThreadId.cpp
+  ./consistency/ValueHistory.cpp
+  ./consistency/ValueTracker.cpp
+  ./runner/CacheComponentStressor.cpp
+  ./runner/CacheStressorBase.cpp
+  ./runner/FastShutdown.cpp
+  ./runner/IntegrationStressor.cpp
+  ./runner/ProgressTracker.cpp
+  ./runner/Runner.cpp
+  ./runner/Stressor.cpp
+  ./util/AggregateStats.cpp
+  ./util/CacheConfig.cpp
+  ./util/Config.cpp
+  ./util/MemoryMonitorScript.cpp
+  ./util/NandWrites.cpp
+  ./util/Sleep.cpp
+  ./workload/BlockChunkCache.cpp
+  ./workload/BlockChunkReplayGenerator.cpp
+  ./workload/PieceWiseCache.cpp
+  ./workload/OnlineGenerator.cpp
+  ./workload/WorkloadGenerator.cpp
+  ./workload/PieceWiseReplayGenerator.cpp
+  ./workload/SimpleFlashBenchmarkGenerator.cpp
+  ${OBJECT_CACHE_PERSISTENCE_THRIFT_FILES}
+  )
+
+add_dependencies(cachelib_cachebench thrift_generated_files)
+target_link_libraries(cachelib_cachebench
+  PUBLIC
+    cachelib_interface
+    cachelib_datatype
+    cachelib_allocator
+    gflags
+  PRIVATE
+    Boost::boost
+)
+
+if ((CMAKE_SYSTEM_NAME STREQUAL Linux) AND
+    (CMAKE_SYSTEM_PROCESSOR STREQUAL x86_64))
+else()
+  target_compile_definitions(cachelib_cachebench
+                             PRIVATE SKIP_OPTION_SIZE_VERIFY)
+endif()
+
+
+add_executable (cachebench main.cpp)
+add_executable (binary_trace_gen binary_trace_gen.cpp)
+target_link_libraries(cachebench cachelib_cachebench)
+target_link_libraries(binary_trace_gen cachelib_cachebench)
+
+install(
+  TARGETS
+     cachebench
+     binary_trace_gen
+  DESTINATION ${BIN_INSTALL_DIR}
+)
+
+
+if (BUILD_SHARED_LIBS)
+  install(
+    TARGETS cachelib_cachebench
+    EXPORT cachelib-exports
+    DESTINATION ${LIB_INSTALL_DIR}
+  )
+endif ()
+
+
+if (BUILD_TESTS)
+  add_library (cachebench_test_support INTERFACE )
+  target_link_libraries (cachebench_test_support INTERFACE
+    cachelib_cachebench
+    glog::glog
+    gflags
+    GTest::gtest
+    GTest::gtest_main
+    GTest::gmock
+  )
+
+
+  function (add_source_test SOURCE_FILE)
+     generic_add_source_test("cachebench-test" "${SOURCE_FILE}"
+                      cachebench_test_support "${ARGN}")
+  endfunction()
+
+  add_source_test (workload/tests/WorkloadGeneratorTest.cpp)
+  add_source_test (workload/tests/PieceWiseCacheTest.cpp)
+  add_source_test (consistency/tests/RingBufferTest.cpp)
+  add_source_test (consistency/tests/ShortThreadIdTest.cpp)
+  add_source_test (consistency/tests/ValueHistoryTest.cpp)
+  add_source_test (consistency/tests/ValueTrackerTest.cpp)
+  add_source_test (util/tests/MemoryMonitorScriptTest.cpp)
+  add_source_test (util/tests/NandWritesTest.cpp)
+  add_source_test (cache/tests/TimeStampTickerTest.cpp)
+
+  # Verify that cachebench can run a sample workload
+  add_test (
+    NAME cachebench-simple
+    COMMAND
+      $<TARGET_FILE:cachebench>
+      --json_test_config
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_configs/simple_test.json
+  )
+  set_tests_properties(cachebench-simple PROPERTIES TIMEOUT 300)
+endif()

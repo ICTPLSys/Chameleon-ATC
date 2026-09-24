@@ -1,0 +1,218 @@
+{
+  "revision": 3,
+  "reason": "Spark18GiB candidates1-8 did not meet reference targets; d06 OOM. After candidate9, test20GiB with a newly measured all-local baseline. Never combine capacities into a curve.",
+  "default": [
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 100000,
+      "cold_folios": 1,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 50000,
+      "cold_folios": 2,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 20000,
+      "cold_folios": 4,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 10000,
+      "cold_folios": 8,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 5000,
+      "cold_folios": 16,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 300000,
+      "epoch_us": 5000,
+      "cold_folios": 32,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 100000,
+      "cold_folios": 8,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 100000,
+      "cold_folios": 16,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 100000,
+      "cold_folios": 32,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 300000,
+      "epoch_us": 200000,
+      "cold_folios": 64,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 500000,
+      "epoch_us": 500000,
+      "cold_folios": 128,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 100000,
+      "cold_folios": 16,
+      "reclaim_budget_mib": 2048
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 200000,
+      "cold_folios": 64,
+      "reclaim_budget_mib": 4096
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 500000,
+      "cold_folios": 128,
+      "reclaim_budget_mib": 6144
+    },
+    {
+      "psi_ppm": 300000,
+      "epoch_us": 1000000,
+      "cold_folios": 128,
+      "reclaim_budget_mib": 4096
+    },
+    {
+      "psi_ppm": 500000,
+      "epoch_us": 1000000,
+      "cold_folios": 128,
+      "reclaim_budget_mib": 6144
+    }
+  ],
+  "applications": {
+    "spark-kmeans": [
+      {
+        "psi_ppm": 1000,
+        "epoch_us": 100000,
+        "cold_folios": 1,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 3000,
+        "epoch_us": 50000,
+        "cold_folios": 2,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 10000,
+        "epoch_us": 20000,
+        "cold_folios": 4,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 30000,
+        "epoch_us": 10000,
+        "cold_folios": 8,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 100000,
+        "epoch_us": 5000,
+        "cold_folios": 16,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 300000,
+        "epoch_us": 5000,
+        "cold_folios": 32,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 10000,
+        "epoch_us": 100000,
+        "cold_folios": 8,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 30000,
+        "epoch_us": 100000,
+        "cold_folios": 16,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 100000,
+        "epoch_us": 100000,
+        "cold_folios": 32,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 18432
+      },
+      {
+        "psi_ppm": 300000,
+        "epoch_us": 200000,
+        "cold_folios": 64,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 500000,
+        "epoch_us": 500000,
+        "cold_folios": 128,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 10000,
+        "epoch_us": 100000,
+        "cold_folios": 16,
+        "reclaim_budget_mib": 2048,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 30000,
+        "epoch_us": 200000,
+        "cold_folios": 64,
+        "reclaim_budget_mib": 4096,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 100000,
+        "epoch_us": 500000,
+        "cold_folios": 128,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 300000,
+        "epoch_us": 1000000,
+        "cold_folios": 128,
+        "reclaim_budget_mib": 4096,
+        "vm_memory_mib": 20480
+      },
+      {
+        "psi_ppm": 500000,
+        "epoch_us": 1000000,
+        "cold_folios": 128,
+        "reclaim_budget_mib": 6144,
+        "vm_memory_mib": 20480
+      }
+    ]
+  }
+}

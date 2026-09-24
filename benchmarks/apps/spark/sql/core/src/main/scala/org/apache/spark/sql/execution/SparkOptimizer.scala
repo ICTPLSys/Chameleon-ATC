@@ -1,0 +1,160 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.spark.sql.execution
+
+import org.apache.spark.sql.ExperimentalMethods
+import org.apache.spark.sql.catalyst.catalog.SessionCatalog
+import org.apache.spark.sql.catalyst.optimizer._
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.connector.catalog.CatalogManager
+import org.apache.spark.sql.execution.datasources.{MarkSingleTaskExecution, PruneFileSourcePartitions, PullOutVariantExtractions, PushVariantIntoScan, SchemaPruning, V1Writes}
+import org.apache.spark.sql.execution.datasources.v2.{GroupBasedRowLevelOperationScanPlanning, OptimizeMetadataOnlyDeleteFromTable, V2ScanPartitioningAndOrdering, V2ScanRelationPushDown, V2Writes}
+import org.apache.spark.sql.execution.dynamicpruning.{CleanupDynamicPruningFilters, PartitionPruning, RowLevelOperationRuntimeGroupFiltering}
+import org.apache.spark.sql.execution.externalUDF.{ExtractExternalUDFFromWindow, PlanExternalUDFs}
+import org.apache.spark.sql.execution.planmerging.MergeSubplans
+import org.apache.spark.sql.execution.python.{ExtractGroupingPythonUDFFromAggregate, ExtractPythonUDFFromAggregate, ExtractPythonUDFs, ExtractPythonUDTFs}
+
+class SparkOptimizer(
+    catalogManager: CatalogManager,
+    catalog: SessionCatalog,
+    experimentalMethods: ExperimentalMethods)
+  extends Optimizer(catalogManager) {
+
+  override def earlyScanPushDownRules: Seq[Rule[LogicalPlan]] =
+    // TODO: move SchemaPruning into catalyst
+    Seq(
+      // Hoist variant extractions out of operators that variant-into-scan pushdown cannot see
+      // through (aggregate function arguments, etc.) into a Project above the scan, so the
+      // extractions below become visible to V2ScanRelationPushDown and PushVariantIntoScan.
+      PullOutVariantExtractions,
+      SchemaPruning,
+      GroupBasedRowLevelOperationScanPlanning,
+      V1Writes,
+      V2ScanRelationPushDown,
+      // V2 applies this fallback before building its scan. For V1, apply it here and rerun
+      // nested pruning because the original grouping expressions may have kept extra fields.
+      CollapseGroupedSumOfCount,
+      SchemaPruning,
+      V2ScanPartitioningAndOrdering,
+      V2Writes,
+      PruneFileSourcePartitions,
+      PushVariantIntoScan,
+      // Variant pushdown can make a reconstruction projection unnecessary. Prune again so this
+      // Once batch reaches the same plan on its first application as it would on a second one.
+      SchemaPruning)
+
+  override def preCBORules: Seq[Rule[LogicalPlan]] =
+    Seq(OptimizeMetadataOnlyDeleteFromTable)
+
+  override def defaultBatches: Seq[Batch] = flattenBatches(Seq(
+    preOptimizationBatches,
+    super.defaultBatches,
+    Batch("Optimize Metadata Only Query", Once, OptimizeMetadataOnlyQuery(catalog)),
+    Batch("PartitionPruning", Once,
+      PartitionPruning,
+      // We can't run `OptimizeSubqueries` in this batch, as it will optimize the subqueries
+      // twice which may break some optimizer rules that can only be applied once. The rule below
+      // only invokes `OptimizeSubqueries` to optimize newly added subqueries.
+      new RowLevelOperationRuntimeGroupFiltering(OptimizeSubqueries)),
+    Batch("InjectRuntimeFilter", FixedPoint(1),
+      InjectRuntimeFilter),
+    Batch("MergeSubplans", Once,
+      MergeSubplans,
+      CombineApproximatePercentiles,
+      RewriteDistinctAggregates),
+    Batch("Pushdown Filters from PartitionPruning", fixedPoint,
+      PushDownPredicates),
+    Batch("Cleanup filters that cannot be pushed down", Once,
+      CleanupDynamicPruningFilters,
+      // cleanup the unnecessary TrueLiteral predicates
+      BooleanSimplification,
+      PruneFilters),
+    postHocOptimizationBatches,
+    Batch("Extract UDFs", Once,
+      ExtractPythonUDFFromJoinCondition,
+      // Expose window results as attributes before creating external UDF evaluation nodes.
+      ExtractExternalUDFFromWindow,
+      PlanExternalUDFs,
+      ExtractPythonUDFFromAggregate,
+      // This must be executed after `ExtractPythonUDFFromAggregate` and before `ExtractPythonUDFs`.
+      ExtractGroupingPythonUDFFromAggregate,
+      // `ExtractPythonUDFs` first lifts Python UDFs out of higher-order function lambdas
+      // (via `ExtractPythonUDFFromLambda`) and then extracts them as ordinary top-level UDFs.
+      ExtractPythonUDFs,
+      ExtractPythonUDTFs,
+      // The eval-python node may be between Project/Filter and the scan node, which breaks
+      // column pruning and filter push-down. Here we rerun the related optimizer rules.
+      ColumnPruning,
+      LimitPushDown,
+      PushPredicateThroughNonJoin,
+      PushProjectionThroughLimitAndOffset,
+      RemoveNoopOperators),
+    // Join-condition UDF extraction can convert a join to a cartesian product. Keep this in a
+    // subsequent batch so validation structurally follows both join-condition extractors.
+    Batch("Check Cartesian Products After UDF Extraction", Once,
+      CheckCartesianProducts),
+    Batch("Infer window group limit", Once,
+      InferWindowGroupLimit,
+      LimitPushDown,
+      LimitPushDownThroughWindow,
+      ConstantFolding,
+      EliminateLimits),
+    Batch("User Provided Optimizers", fixedPoint, experimentalMethods.extraOptimizations: _*),
+    Batch("Replace CTE with Repartition", Once, ReplaceCTERefWithRepartition),
+    // Must run last: it inspects the final plan shape to mark scans that can run in a single task,
+    // and no subsequent rule should reshape the plan or copy the marked scan nodes.
+    Batch("MarkSingleTaskExecution", Once, MarkSingleTaskExecution)))
+
+  override def nonExcludableRules: Seq[String] = super.nonExcludableRules ++
+    Seq(
+      ExtractPythonUDFFromJoinCondition.ruleName,
+      ExtractPythonUDFFromAggregate.ruleName,
+      ExtractGroupingPythonUDFFromAggregate.ruleName,
+      ExtractExternalUDFFromWindow.ruleName,
+      PlanExternalUDFs.ruleName,
+      // Non-excludable: a plan with a Python UDF in a higher-order function lambda only works
+      // because `ExtractPythonUDFs` lifts it out (via `ExtractPythonUDFFromLambda`).
+      ExtractPythonUDFs.ruleName,
+      GroupBasedRowLevelOperationScanPlanning.ruleName,
+      V2ScanRelationPushDown.ruleName,
+      V2ScanPartitioningAndOrdering.ruleName,
+      V2Writes.ruleName,
+      ReplaceCTERefWithRepartition.ruleName,
+      // CleanupDynamicPruningFilters finalizes the DPP predicates inserted by PartitionPruning --
+      // notably rewriting non-deterministic ones to `true` so they are not re-evaluated. That is
+      // correctness behavior, not an optional optimization, so the rule must not be excludable.
+      // Disabling DPP is done by excluding PartitionPruning (the inserter), after which this rule
+      // is a no-op.
+      CleanupDynamicPruningFilters.ruleName)
+
+  /**
+   * Optimization batches that are executed before the regular optimization batches (also before
+   * the finish analysis batch).
+   */
+  def preOptimizationBatches: Seq[Batch] = Nil
+
+  /**
+   * Optimization batches that are executed after the regular optimization batches, but before the
+   * batch executing the [[ExperimentalMethods]] optimizer rules. This hook can be used to add
+   * custom optimizer batches to the Spark optimizer.
+   *
+   * Note that 'Extract UDFs' batch is an exception and runs after the batches defined here.
+   */
+   def postHocOptimizationBatches: Seq[Batch] = Nil
+}

@@ -1,0 +1,389 @@
+diff --git a/Makefile b/Makefile
+index 1f18f3d..9f73c3e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -47,8 +47,9 @@ omp-csr/omp-csr-old: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+ omp-csr/omp-csr-old: omp-csr/omp-csr-old.c $(GRAPH500_SOURCES) \
+ 	$(addprefix generator/,$(GENERATOR_SRCS))
+ 
+-omp-csr/omp-csr: CFLAGS:=$(CFLAGS) $(CFLAGS_OPENMP)
+-omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h $(GRAPH500_SOURCES) \
++omp-csr/omp-csr: override CFLAGS += $(CFLAGS_OPENMP)
++omp-csr/omp-csr: override CPPFLAGS += -DGRAPH500_CSR_CACHE
++omp-csr/omp-csr: omp-csr/omp-csr.c omp-csr/bitmap.h graph500-cache.h $(GRAPH500_SOURCES) \
+ 	$(addprefix generator/,$(GENERATOR_SRCS))
+ 
+ xmt-csr/xmt-csr: CFLAGS:=$(CFLAGS) -pl xmt-csr/xmt-csr.pl
+diff --git a/graph500.c b/graph500.c
+index 499822d..93d78d6 100644
+--- a/graph500.c
++++ b/graph500.c
+@@ -30,6 +30,9 @@
+ #include "generator/splittable_mrg.h"
+ #include "generator/graph_generator.h"
+ #include "generator/make_graph.h"
++#ifdef GRAPH500_CSR_CACHE
++#include "graph500-cache.h"
++#endif
+ 
+ static int64_t nvtx_scale;
+ 
+@@ -42,6 +45,77 @@ static int64_t bfs_nedge[NBFS_max];
+ 
+ static packed_edge * restrict IJ;
+ static int64_t nedge;
++static int graph_loaded;
++
++#ifdef GRAPH500_CSR_CACHE
++struct cache_header {
++  char magic[8];
++  uint64_t endian, version, scale, edgefactor, seed, nbfs, nedge, edge_bytes, rmat;
++  double probabilities[4];
++};
++
++static int load_checkpoint(const char *name)
++{
++  struct cache_header h;
++  int k, j, ret = -1;
++  FILE *stream = fopen(name, "rb");
++  if (!stream) return -1;
++  if (cache_io(stream, &h, sizeof(h), 0)) goto out;
++  if (memcmp(h.magic, "CHG5CSR1", 8) || h.version != 1 ||
++      h.endian != UINT64_C(0x0102030405060708) || h.scale != SCALE ||
++      h.edgefactor != edgefactor || h.seed != userseed || h.nbfs != NBFS ||
++      h.nedge != nvtx_scale * edgefactor || h.edge_bytes != sizeof(*IJ) ||
++      h.rmat != use_RMAT || h.probabilities[0] != A || h.probabilities[1] != B ||
++      h.probabilities[2] != C || h.probabilities[3] != D) {
++    errno = EINVAL; goto out;
++  }
++  if (cache_io(stream, bfs_root, NBFS*sizeof(*bfs_root), 0)) goto out;
++  for (k = 0; k < NBFS; ++k) {
++    if (bfs_root[k] < 0 || bfs_root[k] >= nvtx_scale) { errno = EINVAL; goto out; }
++    for (j = 0; j < k; ++j)
++      if (bfs_root[k] == bfs_root[j]) { errno = EINVAL; goto out; }
++  }
++  nedge = h.nedge;
++  IJ = xmalloc_large_ext(nedge*sizeof(*IJ));
++  if (!IJ || cache_io(stream, IJ, nedge*sizeof(*IJ), 0) ||
++      load_csr_graph(stream, nvtx_scale, nedge)) goto out;
++  if (fgetc(stream) != EOF || ferror(stream)) { errno = EINVAL; goto out; }
++  graph_loaded = 1;
++  ret = 0;
++out:
++  fclose(stream);
++  return ret;
++}
++
++static int save_checkpoint(const char *name)
++{
++  struct cache_header h = {0};
++  char *temporary = malloc(strlen(name)+40);
++  FILE *stream;
++  int fd, ret = -1;
++  if (!temporary) return -1;
++  snprintf(temporary, strlen(name)+40, "%s.tmp.%ld", name, (long)getpid());
++  fd = open(temporary, O_WRONLY|O_CREAT|O_EXCL, 0600);
++  if (fd < 0) { free(temporary); return -1; }
++  stream = fdopen(fd, "wb");
++  if (!stream) { close(fd); unlink(temporary); free(temporary); return -1; }
++  memcpy(h.magic, "CHG5CSR1", 8);
++  h.endian = UINT64_C(0x0102030405060708); h.version = 1;
++  h.scale = SCALE; h.edgefactor = edgefactor; h.seed = userseed;
++  h.nbfs = NBFS; h.nedge = nedge; h.edge_bytes = sizeof(*IJ); h.rmat = use_RMAT;
++  h.probabilities[0] = A; h.probabilities[1] = B;
++  h.probabilities[2] = C; h.probabilities[3] = D;
++  if (!cache_io(stream, &h, sizeof(h), 1) &&
++      !cache_io(stream, bfs_root, NBFS*sizeof(*bfs_root), 1) &&
++      !cache_io(stream, IJ, nedge*sizeof(*IJ), 1) &&
++      !save_csr_graph(stream) && !fflush(stream) && !fsync(fd)) ret = 0;
++  if (fclose(stream)) ret = -1;
++  if (!ret && rename(temporary, name)) ret = -1;
++  if (ret) unlink(temporary);
++  free(temporary);
++  return ret;
++}
++#endif
+ 
+ static void run_bfs (void);
+ static void output_results (const int64_t SCALE, int64_t nvtx_scale,
+@@ -64,6 +138,16 @@ main (int argc, char **argv)
+ 
+   if (argc > 1)
+     get_options (argc, argv);
++#ifndef GRAPH500_CSR_CACHE
++  if (cache_read_name || cache_write_name || prepare_only) {
++    fprintf(stderr, "CSR checkpoints require the omp-csr implementation.\n");
++    return EXIT_FAILURE;
++  }
++#endif
++  OMP("omp parallel") {
++    OMP("omp single")
++      printf("OpenMP team size: %d\n", omp_get_num_threads());
++  }
+ 
+   nvtx_scale = ((int64_t)1)<<SCALE;
+ 
+@@ -79,6 +163,15 @@ main (int argc, char **argv)
+     the following if () {} else {} with a statement pointing IJ
+     to wherever the edge list is mapped into the simulator's memory.
+   */
++#ifdef GRAPH500_CSR_CACHE
++  if (cache_read_name) {
++    int err;
++    if (VERBOSE) fprintf(stderr, "Loading CSR checkpoint... ");
++    TIME(construction_time, err = load_checkpoint(cache_read_name));
++    if (err) { perror("Cannot load CSR checkpoint"); return EXIT_FAILURE; }
++    if (VERBOSE) fprintf(stderr, "done.\n");
++  } else
++#endif
+   if (!dumpname) {
+     if (VERBOSE) fprintf (stderr, "Generating edge list...");
+     if (use_RMAT) {
+@@ -108,7 +201,7 @@ main (int argc, char **argv)
+ 
+   xfree_large (IJ);
+ 
+-  output_results (SCALE, nvtx_scale, edgefactor, A, B, C, D,
++  if (!prepare_only) output_results (SCALE, nvtx_scale, edgefactor, A, B, C, D,
+ 		  generation_time, construction_time, NBFS, bfs_time, bfs_nedge);
+ 
+   return EXIT_SUCCESS;
+@@ -119,14 +212,16 @@ run_bfs (void)
+ {
+   int * restrict has_adj;
+   int m, err;
+-  int64_t k, t, nvtx_connected = 0;
+-
+-  if (VERBOSE) fprintf (stderr, "Creating graph...");
+-  TIME(construction_time, err = create_graph_from_edgelist (IJ, nedge));
+-  if (VERBOSE) fprintf (stderr, "done.\n");
+-  if (err) {
+-    fprintf (stderr, "Failure creating graph.\n");
+-    exit (EXIT_FAILURE);
++  int64_t k, nvtx_connected = 0;
++
++  if (!graph_loaded) {
++    if (VERBOSE) fprintf (stderr, "Creating graph...");
++    TIME(construction_time, err = create_graph_from_edgelist (IJ, nedge));
++    if (VERBOSE) fprintf (stderr, "done.\n");
++    if (err) {
++      fprintf (stderr, "Failure creating graph.\n");
++      exit (EXIT_FAILURE);
++    }
+   }
+ 
+   /*
+@@ -134,6 +229,7 @@ run_bfs (void)
+     the following if () {} else {} with a statement pointing bfs_root
+     to wherever the BFS roots are mapped into the simulator's memory.
+   */
++  if (!graph_loaded) {
+   if (!rootname) {
+     has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
+     OMP("omp parallel") {
+@@ -165,7 +261,7 @@ run_bfs (void)
+       }
+     }
+ 	  
+-    if (t >= nvtx_connected && m < NBFS) {
++    if (m < NBFS) {
+       if (m > 0) {
+ 	fprintf (stderr, "Cannot find %d sample roots of non-self degree > 0, using %d.\n",
+ 		 NBFS, m);
+@@ -191,6 +287,21 @@ run_bfs (void)
+     }
+     close (fd);
+   }
++  }
++
++  printf("bfs_roots:");
++  for (m = 0; m < NBFS; ++m) printf(" %" PRId64, bfs_root[m]);
++  printf("\n");
++#ifdef GRAPH500_CSR_CACHE
++  if (cache_write_name) {
++    if (VERBOSE) fprintf(stderr, "Saving CSR checkpoint... ");
++    if (save_checkpoint(cache_write_name)) {
++      perror("Cannot save CSR checkpoint"); exit(EXIT_FAILURE);
++    }
++    if (VERBOSE) fprintf(stderr, "done.\n");
++  }
++#endif
++  if (prepare_only) { destroy_graph(); return; }
+ 
+   for (m = 0; m < NBFS; ++m) {
+     int64_t *bfs_tree, max_bfsvtx;
+diff --git a/omp-csr/omp-csr.c b/omp-csr/omp-csr.c
+index 3c2636c..105ea89 100644
+--- a/omp-csr/omp-csr.c
++++ b/omp-csr/omp-csr.c
+@@ -3,6 +3,9 @@
+ /* Copyright 2013,  Regents of the University of California, USA. */
+ /* See COPYING for license. */
+ #include "../compat.h"
++#ifndef _OPENMP
++#error "omp-csr must be compiled with OpenMP enabled"
++#endif
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -20,6 +23,7 @@ static int int64_cas(int64_t* p, int64_t oldval, int64_t newval);
+ #include "../xalloc.h"
+ #include "../generator/graph_generator.h"
+ #include "../timer.h"
++#include "../graph500-cache.h"
+ 
+ #include "bitmap.h"
+ 
+@@ -239,6 +243,44 @@ create_graph_from_edgelist (struct packed_edge *IJ, int64_t nedge)
+   return 0;
+ }
+ 
++int
++save_csr_graph(FILE *stream)
++{
++  int64_t shape[2] = {nv, XOFF(nv) + MINVECT_SIZE};
++  return cache_io(stream, shape, sizeof(shape), 1) ||
++    cache_io(stream, xoff, (2*nv+2)*sizeof(*xoff), 1) ||
++    cache_io(stream, xadjstore, shape[1]*sizeof(*xadjstore), 1) ? -1 : 0;
++}
++
++int
++load_csr_graph(FILE *stream, int64_t vertex_limit, int64_t edge_limit)
++{
++  int64_t shape[2], k;
++  if (cache_io(stream, shape, sizeof(shape), 0)) return -1;
++  if (shape[0] <= 0 || shape[0] > vertex_limit ||
++      shape[1] < MINVECT_SIZE ||
++      shape[1] > 2*edge_limit + 2*vertex_limit + MINVECT_SIZE) {
++    errno = EINVAL;
++    return -1;
++  }
++  nv = shape[0]; maxvtx = nv-1;
++  if (alloc_graph(edge_limit)) return -1;
++  xadjstore = xmalloc_large_ext(shape[1]*sizeof(*xadjstore));
++  if (!xadjstore) { xfree_large(xoff); return -1; }
++  xadj = &xadjstore[MINVECT_SIZE];
++  if (cache_io(stream, xoff, (2*nv+2)*sizeof(*xoff), 0) ||
++      cache_io(stream, xadjstore, shape[1]*sizeof(*xadjstore), 0)) {
++    free_graph(); return -1;
++  }
++  if (XOFF(nv) != shape[1]-MINVECT_SIZE) goto invalid;
++  for (k = 0; k < nv; ++k)
++    if (XOFF(k) < 0 || XOFF(k) > XENDOFF(k) ||
++        XENDOFF(k) > XOFF(k+1) || XOFF(k+1) > XOFF(nv)) goto invalid;
++  return 0;
++invalid:
++  errno = EINVAL; free_graph(); return -1;
++}
++
+ static void
+ fill_bitmap_from_queue(bitmap_t *bm, int64_t *vlist, int64_t out, int64_t in)
+ {
+diff --git a/options.c b/options.c
+index ec03024..b41798f 100644
+--- a/options.c
++++ b/options.c
+@@ -24,6 +24,8 @@ int use_RMAT = 0;
+ 
+ char *dumpname = NULL;
+ char *rootname = NULL;
++char *cache_read_name = NULL, *cache_write_name = NULL;
++int prepare_only = 0;
+ 
+ double A = A_PARAM;
+ double B = B_PARAM;
+@@ -48,7 +50,7 @@ get_options (int argc, char **argv) {
+   if (getenv ("VERBOSE"))
+     VERBOSE = 1;
+ 
+-  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:Vo:r:")) != -1)
++  while ((c = getopt (argc, argv, "v?hRs:e:A:a:B:b:C:c:D:d:Vo:r:n:L:W:P")) != -1)
+     switch (c) {
+     case 'v':
+       printf ("%s version %d\n", NAME, VERSION);
+@@ -72,6 +74,10 @@ get_options (int argc, char **argv) {
+ 	      "  V   : Enable extra (Verbose) output\n"
+ 	      "  o   : Read the edge list from (or dump to) the named file\n"
+ 	      "  r   : Read the BFS roots from (or dump to) the named file\n"
++              "  n   : Number of BFS roots (2..64, default 64)\n"
++              "  L   : Load an omp-csr checkpoint (edges, CSR, fixed roots)\n"
++              "  W   : Save an omp-csr checkpoint after constructing the graph\n"
++              "  P   : Prepare and save the checkpoint without running BFS\n"
+ 	      "\n"
+ 	      "Outputs take the form of \"key: value\", with keys:\n"
+ 	      "  SCALE\n"
+@@ -107,6 +113,20 @@ get_options (int argc, char **argv) {
+     case 'V':
+       VERBOSE = 1;
+       break;
++    case 'n': {
++      char *end;
++      long value;
++      errno = 0;
++      value = strtol(optarg, &end, 10);
++      if (errno || !*optarg || *end || value < 2 || value > NBFS_max) {
++        fprintf(stderr, "BFS count must be between 2 and %d.\n", NBFS_max);
++        err = 1;
++      } else NBFS = value;
++      break;
++    }
++    case 'L': cache_read_name = strdup(optarg); break;
++    case 'W': cache_write_name = strdup(optarg); break;
++    case 'P': prepare_only = 1; break;
+     case 'R':
+       use_RMAT = 1;
+       break;
+@@ -229,6 +249,11 @@ get_options (int argc, char **argv) {
+       err = -1;
+     }
+ 
++  if ((cache_read_name && (cache_write_name || dumpname || rootname)) ||
++      (prepare_only && !cache_write_name)) {
++    fprintf(stderr, "Use either -L or -W; -P requires -W.\n");
++    err = 1;
++  }
+   if (err)
+     exit (EXIT_FAILURE);
+   if (nset == 3) {
+diff --git a/options.h b/options.h
+index 78ac599..b28b2ba 100644
+--- a/options.h
++++ b/options.h
+@@ -8,6 +8,8 @@ extern int VERBOSE;
+ extern int use_RMAT;
+ extern char *dumpname;
+ extern char *rootname;
++extern char *cache_read_name, *cache_write_name;
++extern int prepare_only;
+ 
+ #define A_PARAM 0.57
+ #define B_PARAM 0.19
+diff --git a/graph500-cache.h b/graph500-cache.h
+new file mode 100644
+index 0000000..7b055c1
+--- /dev/null
++++ b/graph500-cache.h
+@@ -0,0 +1,23 @@
++#ifndef GRAPH500_CACHE_H
++#define GRAPH500_CACHE_H
++#include <stdio.h>
++#include <errno.h>
++#include <stdint.h>
++
++/* Native-endian, versioned local checkpoint; no pointers are serialized. */
++static inline int cache_io(FILE *stream, void *buffer, uint64_t bytes, int writing)
++{
++  unsigned char *p = buffer;
++  while (bytes) {
++    size_t chunk = bytes > 64 * 1024 * 1024 ? 64 * 1024 * 1024 : (size_t)bytes;
++    size_t done = writing ? fwrite(p, 1, chunk, stream) : fread(p, 1, chunk, stream);
++    if (done != chunk) { errno = EIO; return -1; }
++    p += done;
++    bytes -= done;
++  }
++  return 0;
++}
++
++int save_csr_graph(FILE *stream);
++int load_csr_graph(FILE *stream, int64_t vertex_limit, int64_t edge_limit);
++#endif

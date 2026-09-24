@@ -1,0 +1,22 @@
+= Third-Party Plugins
+:navtitle: Plug-ins
+
+Available third-party plugins for Apache Cassandra
+
+== Cassandra Lucene Index
+
+**NOTE** Support for the Cassandra Lucene Index Plug-in was retired by Instaclustr after the release of Cassandra 5.0 with Storage-attached Indexing (SAI). It remains support for Cassandra 4.x releases.
+
+The Cassandra Lucene Index Plug-in was a Cassandra secondary index implementation
+based on http://lucene.apache.org/[Apache Lucene]. It extended
+Cassandra's functionality to provide near real-time distributed search
+engine capabilities such as with ElasticSearch or
+http://lucene.apache.org/solr/[Apache Solr], including full text search
+capabilities, free multivariable, geospatial and bitemporal search,
+relevance queries and sorting based on column value, relevance or
+distance. Each node indexes its own data, so high availability and
+scalability is guaranteed.
+
+The official Github repository
+https://github.com/instaclustr/cassandra-lucene-index/[Cassandra Lucene
+Index] contains everything you need to build/run/configure the plugin.

@@ -1,0 +1,965 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.spark.memory;
+
+import javax.annotation.concurrent.GuardedBy;
+import java.io.InterruptedIOException;
+import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
+import java.util.*;
+
+import com.google.common.annotations.VisibleForTesting;
+
+import org.apache.spark.internal.SparkLogger;
+import org.apache.spark.internal.SparkLoggerFactory;
+import org.apache.spark.internal.LogKeys;
+import org.apache.spark.internal.MDC;
+import org.apache.spark.unsafe.memory.MemoryAllocator;
+import org.apache.spark.unsafe.memory.MemoryBlock;
+import org.apache.spark.util.Utils;
+
+/**
+ * Manages the memory allocated by an individual task.
+ * <p>
+ * Most of the complexity in this class deals with encoding of off-heap addresses into 64-bit longs.
+ * In off-heap mode, memory can be directly addressed with 64-bit longs. In on-heap mode, memory is
+ * addressed by the combination of a base Object reference and a 64-bit offset within that object.
+ * This is a problem when we want to store pointers to data structures inside of other structures,
+ * such as record pointers inside hashmaps or sorting buffers. Even if we decided to use 128 bits
+ * to address memory, we can't just store the address of the base object since it's not guaranteed
+ * to remain stable as the heap gets reorganized due to GC.
+ * <p>
+ * Instead, we use the following approach to encode record pointers in 64-bit longs: for off-heap
+ * mode, just store the raw address, and for on-heap mode use the upper 13 bits of the address to
+ * store a "page number" and the lower 51 bits to store an offset within this page. These page
+ * numbers are used to index into a "page table" array inside of the MemoryManager in order to
+ * retrieve the base object.
+ * <p>
+ * This allows us to address 8192 pages. In on-heap mode, the maximum page size is limited by the
+ * maximum size of a long[] array, allowing us to address 8192 * (2^31 - 1) * 8 bytes, which is
+ * approximately 140 terabytes of memory.
+ */
+public class TaskMemoryManager {
+
+  private static final SparkLogger logger = SparkLoggerFactory.getLogger(TaskMemoryManager.class);
+
+  /** The number of bits used to address the page table. */
+  private static final int PAGE_NUMBER_BITS = 13;
+
+  /** The number of bits used to encode offsets in data pages. */
+  @VisibleForTesting
+  static final int OFFSET_BITS = 64 - PAGE_NUMBER_BITS;  // 51
+
+  /** The number of entries in the page table. */
+  private static final int PAGE_TABLE_SIZE = 1 << PAGE_NUMBER_BITS;
+
+  /**
+   * Maximum supported data page size (in bytes). In principle, the maximum addressable page size is
+   * (1L &lt;&lt; OFFSET_BITS) bytes, which is 2+ petabytes. However, the on-heap allocator's
+   * maximum page size is limited by the maximum amount of data that can be stored in a long[]
+   * array, which is (2^31 - 1) * 8 bytes (or about 17 gigabytes). Therefore, we cap this at 17
+   * gigabytes.
+   */
+  public static final long MAXIMUM_PAGE_SIZE_BYTES = ((1L << 31) - 1) * 8L;
+
+  /** Bit mask for the lower 51 bits of a long. */
+  private static final long MASK_LONG_LOWER_51_BITS = 0x7FFFFFFFFFFFFL;
+
+  /**
+   * Similar to an operating system's page table, this array maps page numbers into base object
+   * pointers, allowing us to translate between the hashtable's internal 64-bit address
+   * representation and the baseObject+offset representation which we use to support both on- and
+   * off-heap addresses. When using an off-heap allocator, every entry in this map will be `null`.
+   * When using an on-heap allocator, the entries in this map will point to pages' base objects.
+   * Entries are added to this map as new data pages are allocated.
+   */
+  private final MemoryBlock[] pageTable = new MemoryBlock[PAGE_TABLE_SIZE];
+
+  /**
+   * Bitmap for tracking free pages.
+   */
+  private final BitSet allocatedPages = new BitSet(PAGE_TABLE_SIZE);
+
+  /** Pages allocated at the caller's minimum after a partial allocation also failed. */
+  @GuardedBy("this")
+  private final BitSet pagesAllocatedFromMinimumRetry = new BitSet(PAGE_TABLE_SIZE);
+
+  private final MemoryManager memoryManager;
+
+  private final MemoryAllocator tungstenMemoryAllocator;
+
+  private final long taskAttemptId;
+
+  /**
+   * Tracks whether we're on-heap or off-heap. For off-heap, we short-circuit most of these methods
+   * without doing any masking or lookups. Since this branching should be well-predicted by the JIT,
+   * this extra layer of indirection / abstraction hopefully shouldn't be too expensive.
+   */
+  final MemoryMode tungstenMemoryMode;
+
+  /**
+   * Tracks spillable memory consumers.
+   */
+  @GuardedBy("this")
+  private final HashSet<MemoryConsumer> consumers;
+
+  /**
+   * The amount of memory that is acquired but not used.
+   */
+  @GuardedBy("this")
+  private long acquiredButNotUsed = 0L;
+
+  /**
+   * Prevent nested page allocations while spilling from recursively entering allocator recovery.
+   */
+  private final ThreadLocal<Boolean> inPageAllocationRecovery =
+    ThreadLocal.withInitial(() -> false);
+
+  private static final class PageAllocationRequest {
+    private MemoryConsumer consumer;
+    private long minimumSize;
+  }
+
+  /**
+   * Carries a padded page request's minimum usable size through the existing virtual allocatePage
+   * entry point, so subclasses overriding that method continue to intercept page allocations.
+   */
+  private final ThreadLocal<PageAllocationRequest> pageAllocationRequest = new ThreadLocal<>();
+
+  /**
+   * Current off heap memory usage by this task.
+   */
+  private long currentOffHeapMemory = 0L;
+
+  private final Object offHeapMemoryLock = new Object();
+
+  /*
+   * Current on heap memory usage by this task.
+   */
+  private long currentOnHeapMemory = 0L;
+
+  private final Object onHeapMemoryLock = new Object();
+
+  /**
+   * Peak off heap memory usage by this task.
+   */
+  private volatile long peakOffHeapMemory = 0L;
+
+  /**
+   * Peak on heap memory usage by this task.
+   */
+  private volatile long peakOnHeapMemory = 0L;
+
+  /**
+   * Construct a new TaskMemoryManager.
+   */
+  public TaskMemoryManager(MemoryManager memoryManager, long taskAttemptId) {
+    this(memoryManager, taskAttemptId, memoryManager.tungstenMemoryAllocator());
+  }
+
+  @VisibleForTesting
+  TaskMemoryManager(
+      MemoryManager memoryManager,
+      long taskAttemptId,
+      MemoryAllocator tungstenMemoryAllocator) {
+    this.tungstenMemoryMode = memoryManager.tungstenMemoryMode();
+    this.memoryManager = memoryManager;
+    this.tungstenMemoryAllocator = tungstenMemoryAllocator;
+    this.taskAttemptId = taskAttemptId;
+    this.consumers = new HashSet<>();
+  }
+
+  /**
+   * Acquire N bytes of memory for a consumer. If there is no enough memory, it will call
+   * spill() of consumers to release more memory.
+   *
+   * @return number of bytes successfully granted (<= N).
+   */
+  public long acquireExecutionMemory(long required, MemoryConsumer requestingConsumer) {
+    assert(required >= 0);
+    assert(requestingConsumer != null);
+    MemoryMode mode = requestingConsumer.getMode();
+    // If we are allocating Tungsten pages off-heap and receive a request to allocate on-heap
+    // memory here, then it may not make sense to spill since that would only end up freeing
+    // off-heap memory. This is subject to change, though, so it may be risky to make this
+    // optimization now in case we forget to undo it late when making changes.
+    synchronized (this) {
+      long got = memoryManager.acquireExecutionMemory(required, taskAttemptId, mode);
+
+      // Try to release memory from other consumers first, then we can reduce the frequency of
+      // spilling, avoid to have too many spilled files.
+      if (got < required) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Task {} need to spill {} for {}", taskAttemptId,
+            Utils.bytesToString(required - got), requestingConsumer);
+        }
+        // We need to call spill() on consumers to free up more memory. We want to optimize for two
+        // things:
+        // * Minimize the number of spill calls, to reduce the number of spill files and avoid small
+        //   spill files.
+        // * Avoid spilling more data than necessary - if we only need a little more memory, we may
+        //   not want to spill as much data as possible. Many consumers spill more than the
+        //   requested amount, so we can take that into account in our decisions.
+        // We use a heuristic that selects the smallest memory consumer with at least `required`
+        // bytes of memory in an attempt to balance these factors. It may work well if there are
+        // fewer larger requests, but can result in many small spills if there are many smaller
+        // requests.
+
+        // Build a map of consumer in order of memory usage to prioritize spilling. Assign current
+        // consumer (if present) a nominal memory usage of 0 so that it is always last in priority
+        // order. The map will include all consumers that have previously acquired memory.
+        TreeMap<Long, List<MemoryConsumer>> sortedConsumers = new TreeMap<>();
+        for (MemoryConsumer c: consumers) {
+          if (c.getUsed() > 0 && c.getMode() == mode) {
+            long key = c == requestingConsumer ? 0 : c.getUsed();
+            List<MemoryConsumer> list =
+                sortedConsumers.computeIfAbsent(key, k -> new ArrayList<>(1));
+            list.add(c);
+          }
+        }
+        // Iteratively spill consumers until we've freed enough memory or run out of consumers.
+        while (got < required && !sortedConsumers.isEmpty()) {
+          // Get the consumer using the least memory more than the remaining required memory.
+          Map.Entry<Long, List<MemoryConsumer>> currentEntry =
+            sortedConsumers.ceilingEntry(required - got);
+          // No consumer has enough memory on its own, start with spilling the biggest consumer.
+          if (currentEntry == null) {
+            currentEntry = sortedConsumers.lastEntry();
+          }
+          List<MemoryConsumer> cList = currentEntry.getValue();
+          got += trySpillAndAcquire(requestingConsumer, required - got, cList, cList.size() - 1);
+          if (cList.isEmpty()) {
+            sortedConsumers.remove(currentEntry.getKey());
+          }
+        }
+      }
+
+      consumers.add(requestingConsumer);
+      if (logger.isDebugEnabled()) {
+        logger.debug("Task {} acquired {} for {}", taskAttemptId, Utils.bytesToString(got),
+          requestingConsumer);
+      }
+
+      if (mode == MemoryMode.OFF_HEAP) {
+        synchronized (offHeapMemoryLock) {
+          currentOffHeapMemory += got;
+          peakOffHeapMemory = Math.max(peakOffHeapMemory, currentOffHeapMemory);
+        }
+      } else {
+        synchronized (onHeapMemoryLock) {
+          currentOnHeapMemory += got;
+          peakOnHeapMemory = Math.max(peakOnHeapMemory, currentOnHeapMemory);
+        }
+      }
+
+      return got;
+    }
+  }
+
+  /**
+   * Try to acquire as much memory as possible from `cList[idx]`, up to `requested` bytes by
+   * spilling and then acquiring the freed memory. If no more memory can be spilled from
+   * `cList[idx]`, remove it from the list.
+   *
+   * @return number of bytes acquired (<= requested)
+   * @throws RuntimeException if task is interrupted
+   * @throws SparkOutOfMemoryError if an IOException occurs during spilling
+   */
+  private long trySpillAndAcquire(
+      MemoryConsumer requestingConsumer,
+      long requested,
+      List<MemoryConsumer> cList,
+      int idx) {
+    MemoryMode mode = requestingConsumer.getMode();
+    MemoryConsumer consumerToSpill = cList.get(idx);
+    long released = spillConsumer(requestingConsumer, requested, consumerToSpill);
+    if (released > 0) {
+      // When our spill handler releases memory, `ExecutionMemoryPool#releaseMemory()` will
+      // immediately notify other tasks that memory has been freed, and they may acquire the
+      // newly-freed memory before we have a chance to do so (SPARK-35486). Therefore we may
+      // not be able to acquire all the memory that was just spilled. In that case, we will
+      // try again in the next loop iteration.
+      return memoryManager.acquireExecutionMemory(requested, taskAttemptId, mode);
+    } else {
+      cList.remove(idx);
+      return 0;
+    }
+  }
+
+  private long spillConsumer(
+      MemoryConsumer requestingConsumer,
+      long requested,
+      MemoryConsumer consumerToSpill) {
+    if (logger.isDebugEnabled()) {
+      logger.debug("Task {} try to spill {} from {} for {}", taskAttemptId,
+        Utils.bytesToString(requested), consumerToSpill, requestingConsumer);
+    }
+    try {
+      long released = consumerToSpill.spill(requested, requestingConsumer);
+      if (released > 0) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Task {} spilled {} of requested {} from {} for {}", taskAttemptId,
+            Utils.bytesToString(released), Utils.bytesToString(requested), consumerToSpill,
+            requestingConsumer);
+        }
+      }
+      return released;
+    } catch (ClosedByInterruptException | InterruptedIOException e) {
+      // This called by user to kill a task (e.g: speculative task).
+      logger.error("Error while calling spill() on {}", e,
+        MDC.of(LogKeys.MEMORY_CONSUMER, consumerToSpill));
+      throw new RuntimeException(e.getMessage());
+    } catch (IOException e) {
+      logger.error("Error while calling spill() on {}", e,
+        MDC.of(LogKeys.MEMORY_CONSUMER, consumerToSpill));
+      // checkstyle.off: RegexpSinglelineJava
+      throw new SparkOutOfMemoryError(
+        "SPILL_OUT_OF_MEMORY",
+        new HashMap<String, String>() {{
+          put("consumerToSpill", consumerToSpill.toString());
+          put("message", e.getMessage());
+        }});
+      // checkstyle.on: RegexpSinglelineJava
+    }
+  }
+
+  /**
+   * Spill task-managed memory after the allocator rejects a grant which the memory manager thought
+   * was available. Unlike acquireExecutionMemory(), this does not request another grant and cannot
+   * block waiting for fair-share memory.
+   */
+  private synchronized long spillConsumersForPageAllocation(
+      long required,
+      MemoryConsumer requestingConsumer) {
+    TreeMap<Long, List<MemoryConsumer>> sortedConsumers = new TreeMap<>();
+    for (MemoryConsumer c : consumers) {
+      if (c.getUsed() > 0 && c.getMode() == requestingConsumer.getMode()) {
+        long key = c == requestingConsumer ? 0 : c.getUsed();
+        List<MemoryConsumer> list =
+          sortedConsumers.computeIfAbsent(key, k -> new ArrayList<>(1));
+        list.add(c);
+      }
+    }
+
+    long released = 0L;
+    while (released < required && !sortedConsumers.isEmpty()) {
+      Map.Entry<Long, List<MemoryConsumer>> currentEntry =
+        sortedConsumers.ceilingEntry(required - released);
+      if (currentEntry == null) {
+        currentEntry = sortedConsumers.lastEntry();
+      }
+      List<MemoryConsumer> cList = currentEntry.getValue();
+      int idx = cList.size() - 1;
+      MemoryConsumer consumerToSpill = cList.get(idx);
+      long usedBeforeSpill = consumerToSpill.getUsed();
+      spillConsumer(requestingConsumer, required - released, consumerToSpill);
+      // Measure net tracked memory released. Spill callbacks must not reacquire execution memory;
+      // if a custom consumer violates that contract, conservatively treat it as making no progress.
+      long actuallyReleased = Math.max(0L, usedBeforeSpill - consumerToSpill.getUsed());
+      if (actuallyReleased > 0) {
+        released = Math.addExact(released, actuallyReleased);
+      } else {
+        cList.remove(idx);
+      }
+      if (cList.isEmpty()) {
+        sortedConsumers.remove(currentEntry.getKey());
+      }
+    }
+    return released;
+  }
+
+  private long recoverFromPageAllocationFailure(
+      long required,
+      MemoryConsumer requestingConsumer) {
+    if (inPageAllocationRecovery.get()) {
+      return 0;
+    }
+
+    inPageAllocationRecovery.set(true);
+    try {
+      return spillConsumersForPageAllocation(required, requestingConsumer);
+    } finally {
+      inPageAllocationRecovery.remove();
+    }
+  }
+
+  private long acquireAdditionalExecutionMemoryForPageAllocation(
+      long required,
+      MemoryConsumer requestingConsumer) {
+    if (inPageAllocationRecovery.get()) {
+      return 0;
+    }
+
+    inPageAllocationRecovery.set(true);
+    try {
+      return acquireExecutionMemory(required, requestingConsumer);
+    } finally {
+      inPageAllocationRecovery.remove();
+    }
+  }
+
+  private void logPageAllocationFailure(long allocationSize, int retryCount, OutOfMemoryError e) {
+    try {
+      if (retryCount == 0) {
+        logger.warn("Failed to allocate a page ({} bytes), try spilling task memory.", e,
+          MDC.of(LogKeys.PAGE_SIZE, allocationSize));
+      } else {
+        logger.warn("Failed to allocate a page ({} bytes) after {} spill retries.",
+          MDC.of(LogKeys.PAGE_SIZE, allocationSize),
+          MDC.of(LogKeys.NUM_RETRY, retryCount));
+      }
+    } catch (OutOfMemoryError ignored) {
+      // Preserve allocator recovery even if diagnostics cannot allocate memory.
+    }
+  }
+
+  /**
+   * Release N bytes of execution memory for a MemoryConsumer.
+   */
+  public void releaseExecutionMemory(long size, MemoryConsumer consumer) {
+    if (logger.isDebugEnabled()) {
+      logger.debug("Task {} release {} from {}", taskAttemptId, Utils.bytesToString(size),
+        consumer);
+    }
+    memoryManager.releaseExecutionMemory(size, taskAttemptId, consumer.getMode());
+    if (consumer.getMode() == MemoryMode.OFF_HEAP) {
+      synchronized (offHeapMemoryLock) {
+        currentOffHeapMemory -= size;
+      }
+    } else {
+      synchronized (onHeapMemoryLock) {
+        currentOnHeapMemory -= size;
+      }
+    }
+  }
+
+  /**
+   * A point-in-time snapshot of this task's execution-memory usage: each consumer that is holding
+   * memory (largest first) paired with its used bytes, plus the bytes not attributable to any
+   * specific consumer. Rendering the executor-log dump and the error-message breakdown from a
+   * single snapshot is what lets the two describe the same instant; see
+   * {@link #logMemoryUsageAndGetBreakdown()}.
+   */
+  private static final class MemoryUsageSnapshot {
+    private final List<Map.Entry<MemoryConsumer, Long>> consumerUsages;
+    private final long memoryNotAccountedFor;
+
+    MemoryUsageSnapshot(
+        List<Map.Entry<MemoryConsumer, Long>> consumerUsages, long memoryNotAccountedFor) {
+      this.consumerUsages = consumerUsages;
+      this.memoryNotAccountedFor = memoryNotAccountedFor;
+    }
+  }
+
+  /**
+   * Snapshot the per-consumer memory usage once, holding the monitor for the whole read.
+   * <p>
+   * {@link MemoryConsumer#getUsed()} reads an {@code AtomicLong} that is not guarded by this
+   * monitor, so callers must not re-read it while sorting or rendering: doing so could observe
+   * changing values and trip {@code TimSort}'s "Comparison method violates its general contract!"
+   * check, masking the OOM we are about to report with an unrelated failure. Consumers are returned
+   * largest first, since the biggest consumers are the most likely culprits of an OOM.
+   */
+  private MemoryUsageSnapshot snapshotMemoryUsage() {
+    List<Map.Entry<MemoryConsumer, Long>> consumerUsages = new ArrayList<>();
+    long memoryAccountedForByConsumers = 0;
+    long memoryNotAccountedFor;
+    synchronized (this) {
+      for (MemoryConsumer c : consumers) {
+        long totalMemUsage = c.getUsed();
+        if (totalMemUsage > 0) {
+          memoryAccountedForByConsumers += totalMemUsage;
+          consumerUsages.add(new AbstractMap.SimpleEntry<>(c, totalMemUsage));
+        }
+      }
+      memoryNotAccountedFor =
+        memoryManager.getExecutionMemoryUsageForTask(taskAttemptId) - memoryAccountedForByConsumers;
+    }
+    consumerUsages.sort(Map.Entry.<MemoryConsumer, Long>comparingByValue().reversed());
+    return new MemoryUsageSnapshot(consumerUsages, memoryNotAccountedFor);
+  }
+
+  /**
+   * Dump the given memory-usage snapshot to the executor logs, one line per consumer (uncapped).
+   */
+  private void logMemoryUsage(MemoryUsageSnapshot snapshot) {
+    logger.info("Memory used in task {}",
+      MDC.of(LogKeys.TASK_ATTEMPT_ID, taskAttemptId));
+    for (Map.Entry<MemoryConsumer, Long> usage : snapshot.consumerUsages) {
+      logger.info("Acquired by {}: {}",
+        MDC.of(LogKeys.MEMORY_CONSUMER, usage.getKey()),
+        MDC.of(LogKeys.MEMORY_SIZE, Utils.bytesToString(usage.getValue())));
+    }
+    logger.info(
+      "{} bytes of memory were used by task {} but are not associated with specific consumers",
+      MDC.of(LogKeys.MEMORY_SIZE, snapshot.memoryNotAccountedFor),
+      MDC.of(LogKeys.TASK_ATTEMPT_ID, taskAttemptId));
+    logger.info(
+      "{} bytes of memory are used for execution " +
+              "and {} bytes of memory are used for storage " +
+              "and {} bytes of unmanaged memory are used",
+      MDC.of(LogKeys.EXECUTION_MEMORY_SIZE, memoryManager.executionMemoryUsed()),
+      MDC.of(LogKeys.STORAGE_MEMORY_SIZE,  memoryManager.storageMemoryUsed()),
+      MDC.of(LogKeys.MEMORY_SIZE, UnifiedMemoryManager$.MODULE$.getUnmanagedMemoryUsed()));
+  }
+
+  /**
+   * Render the given snapshot as the compact, bounded breakdown embedded in the
+   * {@code UNABLE_TO_ACQUIRE_MEMORY} error. Returns an empty string when there is nothing to
+   * show -- that is, when the snapshot has neither attributed nor unattributed memory to report
+   * (or when the breakdown is disabled by a limit of 0) -- so callers can append it
+   * unconditionally.
+   */
+  private String renderConsumerBreakdown(MemoryUsageSnapshot snapshot) {
+    // Bound the message that travels to the driver and the UI. The largest consumers -- the most
+    // likely culprits -- are listed individually up to this limit; the rest are collapsed into a
+    // single summary line so total byte accounting is preserved without unbounded noise. The full,
+    // uncapped breakdown is still available in the executor logs via logMemoryUsage(). A limit of
+    // 0 omits the breakdown from the error message entirely.
+    int limit = memoryManager.oomErrorConsumerBreakdownLimit();
+    if (limit == 0) {
+      return "";
+    }
+    List<Map.Entry<MemoryConsumer, Long>> usages = snapshot.consumerUsages;
+    StringBuilder sb = new StringBuilder();
+    int shown = Math.min(limit, usages.size());
+    for (int i = 0; i < shown; i++) {
+      Map.Entry<MemoryConsumer, Long> usage = usages.get(i);
+      sb.append("\n  ").append(usage.getKey()).append(": ")
+        .append(Utils.bytesToString(usage.getValue()));
+    }
+    if (usages.size() > shown) {
+      long remainingBytes = 0;
+      for (int i = shown; i < usages.size(); i++) {
+        remainingBytes = Math.addExact(remainingBytes, usages.get(i).getValue());
+      }
+      sb.append("\n  (").append(usages.size() - shown).append(" more consumers): ")
+        .append(Utils.bytesToString(remainingBytes));
+    }
+    if (snapshot.memoryNotAccountedFor > 0) {
+      sb.append("\n  (not attributed to a specific consumer): ")
+        .append(Utils.bytesToString(snapshot.memoryNotAccountedFor));
+    }
+    if (sb.length() == 0) {
+      return "";
+    }
+    return "\nMemory used by task " + taskAttemptId + " grouped by consumer:" + sb;
+  }
+
+  /**
+   * Dump the memory usage of all consumers to the executor logs.
+   */
+  public void showMemoryUsage() {
+    logMemoryUsage(snapshotMemoryUsage());
+  }
+
+  /**
+   * Build a compact, human-readable breakdown of this task's execution-memory usage grouped by
+   * {@link MemoryConsumer}, with the biggest consumers first, followed by the bytes that are not
+   * attributable to any specific consumer.
+   * <p>
+   * The returned string is meant to be embedded in the {@code UNABLE_TO_ACQUIRE_MEMORY} error so
+   * that the consumers competing for memory at the moment of failure travel with the task failure
+   * reason all the way to the driver and the Spark UI. Returns an empty string when there is
+   * nothing to report -- no consumer is holding memory <i>and</i> there is no unattributed
+   * memory, or the breakdown is disabled by a limit of 0 -- so the caller can append it
+   * unconditionally. Otherwise, a task holding only unattributed memory still gets a breakdown,
+   * consisting of the unattributed line alone.
+   */
+  public String getMemoryConsumptionBreakdown() {
+    // Skip the snapshot entirely when the breakdown is disabled: renderConsumerBreakdown would
+    // discard it anyway. The combined logging path (logMemoryUsageAndGetBreakdown) still needs the
+    // snapshot to write the executor-log dump, so it keeps snapshotting and relies on the
+    // renderer's own limit-0 check.
+    if (memoryManager.oomErrorConsumerBreakdownLimit() == 0) {
+      return "";
+    }
+    return renderConsumerBreakdown(snapshotMemoryUsage());
+  }
+
+  /**
+   * Snapshot this task's memory usage once, write the full (uncapped) breakdown to the executor
+   * logs, and return the bounded breakdown to embed in the {@code UNABLE_TO_ACQUIRE_MEMORY} error.
+   * <p>
+   * Taking a single snapshot for both outputs is what guarantees the log dump and the error message
+   * describe the same instant and cannot disagree; this is the method the OOM path should call
+   * rather than invoking {@link #showMemoryUsage()} and {@link #getMemoryConsumptionBreakdown()}
+   * separately.
+   */
+  public String logMemoryUsageAndGetBreakdown() {
+    MemoryUsageSnapshot snapshot = snapshotMemoryUsage();
+    logMemoryUsage(snapshot);
+    return renderConsumerBreakdown(snapshot);
+  }
+
+  /**
+   * Return the page size in bytes.
+   */
+  public long pageSizeBytes() {
+    return memoryManager.pageSizeBytes();
+  }
+
+  /**
+   * Allocate a block of memory that will be tracked in the MemoryManager's page table; this is
+   * intended for allocating large blocks of Tungsten memory that will be shared between operators.
+   *
+   * Returns `null` if there was not enough memory to allocate the page. May return a page that
+   * contains fewer bytes than requested, so callers should verify the size of returned pages.
+   *
+   * @throws TooLargePageException
+   */
+  public MemoryBlock allocatePage(long size, MemoryConsumer consumer) {
+    PageAllocationRequest request = pageAllocationRequest.get();
+    long minimumSize = request != null && request.consumer == consumer
+      ? Math.min(request.minimumSize, size)
+      : size;
+    return allocatePageInternal(size, minimumSize, consumer);
+  }
+
+  MemoryBlock allocatePageWithMinimum(
+      long size,
+      long minimumSize,
+      MemoryConsumer consumer) {
+    assert(minimumSize >= 0 && minimumSize <= size);
+    PageAllocationRequest request = pageAllocationRequest.get();
+    if (request == null) {
+      request = new PageAllocationRequest();
+      pageAllocationRequest.set(request);
+    }
+    MemoryConsumer previousConsumer = request.consumer;
+    long previousMinimumSize = request.minimumSize;
+    request.consumer = consumer;
+    request.minimumSize = minimumSize;
+    try {
+      return allocatePage(size, consumer);
+    } finally {
+      request.consumer = previousConsumer;
+      request.minimumSize = previousMinimumSize;
+    }
+  }
+
+  private MemoryBlock allocatePageInternal(
+      long size,
+      long minimumSize,
+      MemoryConsumer consumer) {
+    assert(consumer != null);
+    assert(consumer.getMode() == tungstenMemoryMode);
+    if (inPageAllocationRecovery.get()) {
+      return null;
+    }
+    if (size > MAXIMUM_PAGE_SIZE_BYTES) {
+      throw new TooLargePageException(size);
+    }
+
+    long acquired = acquireExecutionMemory(size, consumer);
+    if (acquired <= 0) {
+      return null;
+    }
+
+    final int pageNumber;
+    synchronized (this) {
+      pageNumber = allocatedPages.nextClearBit(0);
+      if (pageNumber >= PAGE_TABLE_SIZE) {
+        releaseExecutionMemory(acquired, consumer);
+        throw new IllegalStateException(
+          "Have already allocated a maximum of " + PAGE_TABLE_SIZE + " pages");
+      }
+      allocatedPages.set(pageNumber);
+    }
+    MemoryBlock page = null;
+    boolean pageAllocated = false;
+    int retryCount = 0;
+    long allocationSize = acquired;
+    long partialAllocationSize = 0;
+    boolean tryingPartialAllocation = false;
+    boolean minimumRetryAfterPartialAllocationFailure = false;
+    try {
+      while (true) {
+        try {
+          page = tungstenMemoryAllocator.allocate(allocationSize);
+          break;
+        } catch (OutOfMemoryError e) {
+          logPageAllocationFailure(allocationSize, retryCount, e);
+          if (tryingPartialAllocation) {
+            if (minimumSize > 0 && minimumSize < allocationSize) {
+              // Reuse the retained grant for one final attempt at the caller's usable minimum.
+              long surplus = Math.subtractExact(acquired, minimumSize);
+              releaseExecutionMemory(surplus, consumer);
+              acquired = minimumSize;
+              allocationSize = minimumSize;
+              minimumRetryAfterPartialAllocationFailure = true;
+              retryCount++;
+              continue;
+            }
+            return null;
+          }
+          long released = recoverFromPageAllocationFailure(allocationSize, consumer);
+          if (released > 0) {
+            long remaining = allocationSize - partialAllocationSize;
+            partialAllocationSize += Math.min(released, remaining);
+          } else if (partialAllocationSize > 0 && partialAllocationSize < allocationSize) {
+            // Preserve one bounded attempt to combine the memory made available by spilling with
+            // any remaining free-tail grant, then fall back to a partial page for callers that can
+            // use one. The additional grant may already include the spilled memory, so do not add
+            // it to partialAllocationSize.
+            long additionalAcquired =
+              acquireAdditionalExecutionMemoryForPageAllocation(size, consumer);
+            if (additionalAcquired > 0) {
+              long overlap =
+                additionalAcquired >= partialAllocationSize ? partialAllocationSize : 0L;
+              if (overlap > 0) {
+                releaseExecutionMemory(overlap, consumer);
+              }
+              acquired = Math.addExact(acquired, additionalAcquired - overlap);
+            }
+            allocationSize =
+              additionalAcquired > 0 ? additionalAcquired : partialAllocationSize;
+            tryingPartialAllocation = true;
+          } else if (partialAllocationSize == 0) {
+            // Preserve one bounded attempt to acquire a smaller free-tail grant. The previous
+            // recursive implementation could return a partial page this way after retaining the
+            // rejected grant, but could also retry without bound.
+            long additionalAcquired =
+              acquireAdditionalExecutionMemoryForPageAllocation(size, consumer);
+            if (additionalAcquired <= 0) {
+              return null;
+            }
+            acquired = Math.addExact(acquired, additionalAcquired);
+            allocationSize = additionalAcquired;
+            tryingPartialAllocation = true;
+          } else if (minimumSize > 0 && minimumSize < allocationSize) {
+            // The original grant is still reserved. If the caller padded a smaller allocation to
+            // the configured page size, make one bounded attempt at the minimum usable size without
+            // acquiring more execution memory.
+            long surplus = Math.subtractExact(acquired, minimumSize);
+            releaseExecutionMemory(surplus, consumer);
+            acquired = minimumSize;
+            allocationSize = minimumSize;
+            tryingPartialAllocation = true;
+            minimumRetryAfterPartialAllocationFailure = true;
+          } else {
+            return null;
+          }
+          retryCount++;
+        }
+      }
+      page.pageNumber = pageNumber;
+      pageTable[pageNumber] = page;
+      synchronized (this) {
+        acquiredButNotUsed = Math.addExact(acquiredButNotUsed, acquired - page.size());
+        if (minimumRetryAfterPartialAllocationFailure) {
+          pagesAllocatedFromMinimumRetry.set(pageNumber);
+        }
+      }
+      pageAllocated = true;
+      if (logger.isTraceEnabled()) {
+        logger.trace("Allocate page number {} ({} bytes)", pageNumber, allocationSize);
+      }
+      return page;
+    } finally {
+      if (!pageAllocated) {
+        if (page != null) {
+          page.pageNumber = MemoryBlock.FREED_IN_TMM_PAGE_NUMBER;
+          tungstenMemoryAllocator.free(page);
+        }
+        synchronized (this) {
+          pageTable[pageNumber] = null;
+          allocatedPages.clear(pageNumber);
+          acquiredButNotUsed = Math.addExact(acquiredButNotUsed, acquired);
+        }
+      }
+    }
+  }
+
+  /**
+   * Free a block of memory allocated via {@link TaskMemoryManager#allocatePage}.
+   */
+  public void freePage(MemoryBlock page, MemoryConsumer consumer) {
+    assert (page.pageNumber != MemoryBlock.NO_PAGE_NUMBER) :
+      "Called freePage() on memory that wasn't allocated with allocatePage()";
+    assert (page.pageNumber != MemoryBlock.FREED_IN_ALLOCATOR_PAGE_NUMBER) :
+      "Called freePage() on a memory block that has already been freed";
+    assert (page.pageNumber != MemoryBlock.FREED_IN_TMM_PAGE_NUMBER) :
+            "Called freePage() on a memory block that has already been freed";
+    assert(allocatedPages.get(page.pageNumber));
+    pageTable[page.pageNumber] = null;
+    synchronized (this) {
+      allocatedPages.clear(page.pageNumber);
+      pagesAllocatedFromMinimumRetry.clear(page.pageNumber);
+    }
+    if (logger.isTraceEnabled()) {
+      logger.trace("Freed page number {} ({} bytes)", page.pageNumber, page.size());
+    }
+    long pageSize = page.size();
+    // Clear the page number before passing the block to the MemoryAllocator's free().
+    // Doing this allows the MemoryAllocator to detect when a TaskMemoryManager-managed
+    // page has been inappropriately directly freed without calling TMM.freePage().
+    page.pageNumber = MemoryBlock.FREED_IN_TMM_PAGE_NUMBER;
+    tungstenMemoryAllocator.free(page);
+    releaseExecutionMemory(pageSize, consumer);
+  }
+
+  boolean isPageAllocationFromMinimumRetry(MemoryBlock page) {
+    synchronized (this) {
+      int pageNumber = page.pageNumber;
+      return pageNumber >= 0 && pageNumber < PAGE_TABLE_SIZE &&
+        allocatedPages.get(pageNumber) &&
+        pagesAllocatedFromMinimumRetry.get(pageNumber);
+    }
+  }
+
+  /**
+   * Given a memory page and offset within that page, encode this address into a 64-bit long.
+   * This address will remain valid as long as the corresponding page has not been freed.
+   *
+   * @param page a data page allocated by {@link TaskMemoryManager#allocatePage}/
+   * @param offsetInPage an offset in this page which incorporates the base offset. In other words,
+   *                     this should be the value that you would pass as the base offset into an
+   *                     UNSAFE call (e.g. page.baseOffset() + something).
+   * @return an encoded page address.
+   */
+  public long encodePageNumberAndOffset(MemoryBlock page, long offsetInPage) {
+    if (tungstenMemoryMode == MemoryMode.OFF_HEAP) {
+      // In off-heap mode, an offset is an absolute address that may require a full 64 bits to
+      // encode. Due to our page size limitation, though, we can convert this into an offset that's
+      // relative to the page's base offset; this relative offset will fit in 51 bits.
+      offsetInPage -= page.getBaseOffset();
+    }
+    return encodePageNumberAndOffset(page.pageNumber, offsetInPage);
+  }
+
+  @VisibleForTesting
+  public static long encodePageNumberAndOffset(int pageNumber, long offsetInPage) {
+    assert (pageNumber >= 0) : "encodePageNumberAndOffset called with invalid page";
+    return (((long) pageNumber) << OFFSET_BITS) | (offsetInPage & MASK_LONG_LOWER_51_BITS);
+  }
+
+  @VisibleForTesting
+  public static int decodePageNumber(long pagePlusOffsetAddress) {
+    return (int) (pagePlusOffsetAddress >>> OFFSET_BITS);
+  }
+
+  private static long decodeOffset(long pagePlusOffsetAddress) {
+    return (pagePlusOffsetAddress & MASK_LONG_LOWER_51_BITS);
+  }
+
+  /**
+   * Get the page associated with an address encoded by
+   * {@link TaskMemoryManager#encodePageNumberAndOffset(MemoryBlock, long)}
+   */
+  public Object getPage(long pagePlusOffsetAddress) {
+    if (tungstenMemoryMode == MemoryMode.ON_HEAP) {
+      final int pageNumber = decodePageNumber(pagePlusOffsetAddress);
+      assert (pageNumber >= 0 && pageNumber < PAGE_TABLE_SIZE);
+      final MemoryBlock page = pageTable[pageNumber];
+      assert (page != null);
+      assert (page.getBaseObject() != null);
+      return page.getBaseObject();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Get the offset associated with an address encoded by
+   * {@link TaskMemoryManager#encodePageNumberAndOffset(MemoryBlock, long)}
+   */
+  public long getOffsetInPage(long pagePlusOffsetAddress) {
+    final long offsetInPage = decodeOffset(pagePlusOffsetAddress);
+    if (tungstenMemoryMode == MemoryMode.ON_HEAP) {
+      return offsetInPage;
+    } else {
+      // In off-heap mode, an offset is an absolute address. In encodePageNumberAndOffset, we
+      // converted the absolute address into a relative address. Here, we invert that operation:
+      final int pageNumber = decodePageNumber(pagePlusOffsetAddress);
+      assert (pageNumber >= 0 && pageNumber < PAGE_TABLE_SIZE);
+      final MemoryBlock page = pageTable[pageNumber];
+      assert (page != null);
+      return page.getBaseOffset() + offsetInPage;
+    }
+  }
+
+  /**
+   * Clean up all allocated memory and pages. Returns the number of bytes freed. A non-zero return
+   * value can be used to detect memory leaks.
+   */
+  public long cleanUpAllAllocatedMemory() {
+    final long acquiredButNotUsedToRelease;
+    synchronized (this) {
+      for (MemoryConsumer c: consumers) {
+        if (c != null && c.getUsed() > 0) {
+          if (logger.isDebugEnabled()) {
+            // In case of failed task, it's normal to see leaked memory
+            logger.debug("unreleased {} memory from {}", Utils.bytesToString(c.getUsed()), c);
+          }
+        }
+      }
+      consumers.clear();
+
+      for (MemoryBlock page : pageTable) {
+        if (page != null) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("unreleased page: {} in task {}", page, taskAttemptId);
+          }
+          page.pageNumber = MemoryBlock.FREED_IN_TMM_PAGE_NUMBER;
+          tungstenMemoryAllocator.free(page);
+        }
+      }
+      Arrays.fill(pageTable, null);
+      allocatedPages.clear();
+      pagesAllocatedFromMinimumRetry.clear();
+      acquiredButNotUsedToRelease = acquiredButNotUsed;
+      acquiredButNotUsed = 0L;
+    }
+
+    // release the memory that is not used by any consumer (acquired for pages in tungsten mode).
+    memoryManager.releaseExecutionMemory(
+      acquiredButNotUsedToRelease, taskAttemptId, tungstenMemoryMode);
+
+    return memoryManager.releaseAllExecutionMemoryForTask(taskAttemptId);
+  }
+
+  /**
+   * Returns the memory consumption, in bytes, for the current task.
+   */
+  public long getMemoryConsumptionForThisTask() {
+    return memoryManager.getExecutionMemoryUsageForTask(taskAttemptId);
+  }
+
+  /**
+   * Returns Tungsten memory mode
+   */
+  public MemoryMode getTungstenMemoryMode() {
+    return tungstenMemoryMode;
+  }
+
+  /**
+   * Returns peak task-level off-heap memory usage in bytes.
+   *
+   */
+  public long getPeakOnHeapExecutionMemory() {
+    return peakOnHeapMemory;
+  }
+
+  /**
+   * Returns peak task-level on-heap memory usage in bytes.
+   */
+  public long getPeakOffHeapExecutionMemory() {
+    return peakOffHeapMemory;
+  }
+}

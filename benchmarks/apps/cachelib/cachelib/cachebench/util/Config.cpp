@@ -1,0 +1,347 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "cachelib/cachebench/util/Config.h"
+
+#include <fmt/core.h>
+#include <folly/FileUtil.h>
+#include <folly/json/json.h>
+
+namespace facebook {
+namespace cachelib {
+namespace cachebench {
+namespace {
+
+DramIteratorMode parseDramIteratorMode(const std::string& mode) {
+  if (mode == "disabled") {
+    return DramIteratorMode::kDisabled;
+  }
+  if (mode == "regular") {
+    return DramIteratorMode::kRegular;
+  }
+  if (mode == "lock_group") {
+    return DramIteratorMode::kLockGroup;
+  }
+  throw std::invalid_argument(
+      fmt::format("Unsupported dramIteratorMode: {}", mode));
+}
+
+uint64_t parseNonNegativeInteger(const folly::dynamic& value,
+                                 const char* fieldName) {
+  const auto parsed = value.asInt();
+  if (parsed < 0) {
+    throw std::invalid_argument(
+        fmt::format("{} must not be negative", fieldName));
+  }
+  return static_cast<uint64_t>(parsed);
+}
+
+} // namespace
+
+StressorConfig::StressorConfig(const folly::dynamic& configJson) {
+  JSONSetVal(configJson, generator);
+
+  JSONSetVal(configJson, name);
+
+  JSONSetVal(configJson, enableLookaside);
+  JSONSetVal(configJson, onlySetIfMiss);
+  JSONSetVal(configJson, ignoreOpCount);
+  JSONSetVal(configJson, populateItem);
+  JSONSetVal(configJson, samplingIntervalMs);
+
+  JSONSetVal(configJson, checkConsistency);
+  JSONSetVal(configJson, touchValue);
+
+  JSONSetVal(configJson, numOps);
+  JSONSetVal(configJson, numThreads);
+  JSONSetVal(configJson, numKeys);
+
+  JSONSetVal(configJson, opDelayBatch);
+  JSONSetVal(configJson, opDelayNs);
+
+  JSONSetVal(configJson, opRatePerSec);
+  JSONSetVal(configJson, opRateBurstSize);
+
+  JSONSetVal(configJson, opPoolDistribution);
+  JSONSetVal(configJson, keyPoolDistribution);
+
+  JSONSetVal(configJson, maxInconsistencyCount);
+
+  JSONSetVal(configJson, traceFileName);
+  JSONSetVal(configJson, traceFileNames);
+  JSONSetVal(configJson, configPath);
+
+  JSONSetVal(configJson, cachePieceSize);
+  JSONSetVal(configJson, maxCachePieces);
+
+  JSONSetVal(configJson, missTraceFile);
+
+  JSONSetVal(configJson, maxInvalidDestructorCount);
+
+  JSONSetVal(configJson, repeatTraceReplay);
+  JSONSetVal(configJson, timestampFactor);
+
+  JSONSetVal(configJson, checkNvmCacheWarmUp);
+
+  JSONSetVal(configJson, useCombinedLockForIterators);
+  JSONSetVal(configJson, dramIteratorIntervalMs);
+  if (const auto* mode = configJson.get_ptr("dramIteratorMode")) {
+    dramIteratorMode = parseDramIteratorMode(mode->asString());
+  }
+  if (const auto* sleepMs = configJson.get_ptr("dramIteratorSleepMs")) {
+    dramIteratorSleepMs =
+        parseNonNegativeInteger(*sleepMs, "dramIteratorSleepMs");
+  }
+  if (const auto* workMs = configJson.get_ptr("dramIteratorWorkMs")) {
+    dramIteratorWorkMs = parseNonNegativeInteger(*workMs, "dramIteratorWorkMs");
+  }
+
+  if (configJson.count("poolDistributions")) {
+    for (auto& it : configJson["poolDistributions"]) {
+      poolDistributions.emplace_back(it, configPath);
+    }
+  } else {
+    poolDistributions.emplace_back(configJson, configPath);
+  }
+
+  if (configJson.count("replayGeneratorConfig")) {
+    replayGeneratorConfig =
+        ReplayGeneratorConfig{configJson["replayGeneratorConfig"]};
+  }
+
+  if (configJson.count("nvmCacheWarmupCheckPolicy")) {
+    nvmCacheWarmupCheckPolicy =
+        WarmupCheckPolicy{configJson["nvmCacheWarmupCheckPolicy"]};
+  }
+
+  if (!traceFileName.empty() && !traceFileNames.empty()) {
+    throw std::invalid_argument(
+        fmt::format("set only one of traceFileName or traceFileNames"));
+  }
+
+  if (usesDramIterator() && dramIteratorIntervalMs == 0) {
+    throw std::invalid_argument(
+        "dramIteratorIntervalMs must be greater than 0 when dram iterator is "
+        "enabled");
+  }
+  if (dramIteratorSleepMs == 0 && dramIteratorWorkMs != 0) {
+    throw std::invalid_argument(
+        "dramIteratorWorkMs must be 0 when dramIteratorSleepMs is 0");
+  }
+
+  // If you added new fields to the configuration, update the JSONSetVal
+  // to make them available for the json configs and increment the size
+  // below
+  checkCorrectSize<StressorConfig, 640>();
+}
+
+bool StressorConfig::usesDramIterator() const {
+  return dramIteratorMode != DramIteratorMode::kDisabled;
+}
+
+bool StressorConfig::usesRegularDramIterator() const {
+  return dramIteratorMode == DramIteratorMode::kRegular;
+}
+
+bool StressorConfig::usesLockGroupDramIterator() const {
+  return dramIteratorMode == DramIteratorMode::kLockGroup;
+}
+
+bool StressorConfig::usesChainedItems() const {
+  for (const auto& c : poolDistributions) {
+    if (c.usesChainedItems()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+CacheBenchConfig::CacheBenchConfig(
+    const std::string& path,
+    const CacheConfigCustomizer& cacheConfigCustomizer,
+    const StressorConfigCustomizer& stressorConfigCustomizer) {
+  std::string configString;
+  if (!folly::readFile(path.c_str(), configString)) {
+    throw std::invalid_argument(fmt::format("could not read file: {}", path));
+  }
+
+  std::cout << "===JSON Config===" << std::endl;
+  std::cout << configString << std::endl;
+
+  // Parse a single instance config
+  auto parseInstanceConfig = [&, this](folly::dynamic& configJson) {
+    auto& [cacheConfig, stressorConfig] = configs_.emplace_back();
+
+    auto& testConfigJson = configJson["test_config"];
+    if (testConfigJson.getDefault("configPath", "").empty()) {
+      // strip out the file name at the end to get the directory if the path
+      // contains / and if not, the path is present directory. Assume the file
+      // does not have any escaped '/'
+      auto pos = path.find_last_of('/');
+      const std::string configDir =
+          (pos != std::string::npos)
+              ? std::string{path.begin(), path.begin() + pos}
+              : ".";
+      testConfigJson["configPath"] = configDir;
+    }
+
+    // if present, customize the configuration.
+    stressorConfig = StressorConfig{testConfigJson};
+    stressorConfig = stressorConfigCustomizer
+                         ? stressorConfigCustomizer(stressorConfig)
+                         : stressorConfig;
+    if (configJson.count("cache_config")) {
+      cacheConfig = CacheConfig{configJson["cache_config"]};
+      cacheConfig = cacheConfigCustomizer ? cacheConfigCustomizer(cacheConfig)
+                                          : cacheConfig;
+    }
+  };
+
+  auto configJson = folly::parseJson(folly::json::stripComments(configString));
+  if (configJson.isArray()) {
+    for (auto& instanceConfigJson : configJson) {
+      parseInstanceConfig(instanceConfigJson);
+    }
+  } else {
+    parseInstanceConfig(configJson);
+  }
+}
+
+DistributionConfig::DistributionConfig(const folly::dynamic& jsonConfig,
+                                       const std::string& configPath) {
+  JSONSetVal(jsonConfig, keySizeRange);
+  JSONSetVal(jsonConfig, keySizeRangeProbability);
+
+  JSONSetVal(jsonConfig, valSizeRange);
+  JSONSetVal(jsonConfig, valSizeRangeProbability);
+
+  JSONSetVal(jsonConfig, valSizeDistFile);
+
+  JSONSetVal(jsonConfig, chainedItemLengthRange);
+  JSONSetVal(jsonConfig, chainedItemLengthRangeProbability);
+
+  JSONSetVal(jsonConfig, chainedItemValSizeRange);
+  JSONSetVal(jsonConfig, chainedItemValSizeRangeProbability);
+
+  JSONSetVal(jsonConfig, ttlSecsRange);
+  JSONSetVal(jsonConfig, ttlSecsRangeProbability);
+
+  JSONSetVal(jsonConfig, popularityBuckets);
+  JSONSetVal(jsonConfig, popularityWeights);
+
+  JSONSetVal(jsonConfig, popDistFile);
+
+  JSONSetVal(jsonConfig, getRatio);
+  JSONSetVal(jsonConfig, setRatio);
+  JSONSetVal(jsonConfig, delRatio);
+  JSONSetVal(jsonConfig, addChainedRatio);
+  JSONSetVal(jsonConfig, loneGetRatio);
+  JSONSetVal(jsonConfig, loneSetRatio);
+  JSONSetVal(jsonConfig, updateRatio);
+  JSONSetVal(jsonConfig, couldExistRatio);
+
+  JSONSetVal(jsonConfig, useLegacyKeyGen);
+
+  auto readFile = [&](const std::string& f) {
+    std::string str;
+    const std::string path = fmt::format("{}/{}", configPath, f);
+    std::cout << "reading distribution params from " << path << std::endl;
+    if (!folly::readFile(path.c_str(), str)) {
+      throw std::invalid_argument(fmt::format("could not read file: {}", path));
+    }
+    return str;
+  };
+
+  if (!valSizeDistFile.empty()) {
+    const auto configJsonVal = folly::parseJson(readFile(valSizeDistFile));
+    JSONSetVal(configJsonVal, valSizeRange);
+    JSONSetVal(configJsonVal, valSizeRangeProbability);
+  }
+
+  if (!popDistFile.empty()) {
+    const auto configJsonPop = folly::parseJson(readFile(popDistFile));
+    JSONSetVal(configJsonPop, popularityBuckets);
+    JSONSetVal(configJsonPop, popularityWeights);
+  }
+
+  checkCorrectSize<DistributionConfig, 424>();
+}
+
+ReplayGeneratorConfig::ReplayGeneratorConfig(const folly::dynamic& configJson) {
+  JSONSetVal(configJson, ampFactor);
+  JSONSetVal(configJson, ampSizeFactor);
+  JSONSetVal(configJson, binaryFileName);
+  JSONSetVal(configJson, fastForwardCount);
+  JSONSetVal(configJson, preLoadReqs);
+  JSONSetVal(configJson, replaySerializationMode);
+  JSONSetVal(configJson, relaxedSerialIntervalMs);
+  JSONSetVal(configJson, numAggregationFields);
+  JSONSetVal(configJson, numExtraFields);
+  JSONSetVal(configJson, blockSizeKB);
+  JSONSetVal(configJson, chunkSizeKB);
+  JSONSetVal(configJson, statsPerAggField);
+
+  if (configJson.count("mlAdmissionConfig")) {
+    mlAdmissionConfig =
+        std::make_shared<MLAdmissionConfig>(configJson["mlAdmissionConfig"]);
+  }
+
+  if (replaySerializationMode != "strict" &&
+      replaySerializationMode != "relaxed" &&
+      replaySerializationMode != "none") {
+    throw std::invalid_argument(fmt::format(
+        "Unsupported request serialization mode: {}", replaySerializationMode));
+  }
+
+  checkCorrectSize<ReplayGeneratorConfig, 184>();
+}
+
+ReplayGeneratorConfig::SerializeMode
+ReplayGeneratorConfig::getSerializationMode() const {
+  if (replaySerializationMode == "relaxed") {
+    return ReplayGeneratorConfig::SerializeMode::relaxed;
+  }
+
+  if (replaySerializationMode == "none") {
+    return ReplayGeneratorConfig::SerializeMode::none;
+  }
+
+  return ReplayGeneratorConfig::SerializeMode::strict;
+}
+
+MLAdmissionConfig::MLAdmissionConfig(const folly::dynamic& configJson) {
+  JSONSetVal(configJson, modelPath);
+  JSONSetVal(configJson, numericFeatures);
+  JSONSetVal(configJson, categoricalFeatures);
+  JSONSetVal(configJson, targetRecall);
+  JSONSetVal(configJson, admitCategory);
+
+  checkCorrectSize<MLAdmissionConfig, 160>();
+}
+
+WarmupCheckPolicy::WarmupCheckPolicy(const folly::dynamic& configJson) {
+  // reset the default values to make sure they are not used
+  evictionCountThreshold = 0;
+  requestTimestampThreshold = 0;
+  JSONSetVal(configJson, evictionCountThreshold);
+  JSONSetVal(configJson, requestTimestampThreshold);
+
+  checkCorrectSize<WarmupCheckPolicy, 16>();
+}
+
+} // namespace cachebench
+} // namespace cachelib
+} // namespace facebook

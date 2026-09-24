@@ -1,0 +1,652 @@
+{
+  "schema_version": 1,
+  "repeats": 3,
+  "normalization": "Three newly measured tracked all-local runs per application; fixed mean denominator for all points.",
+  "reclaim_metric": "100 * (1 - mean(QEMU RSS samples during workload) / configured VM memory bytes)",
+  "applications": {
+    "liblinear": {
+      "display_name": "Liblinear",
+      "vm_memory_mib": 65536,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--dataset",
+          "{inputs}/kdd12-prefix-68m",
+          "--threads",
+          "4"
+        ],
+        "prepare": {
+          "kind": "xz-prefix",
+          "source": "benchmarks/dataset/kdd12/kdd12.xz",
+          "records": 68000000,
+          "output": "kdd12-prefix-68m"
+        }
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d02",
+          "configuration": {
+            "minimum_local_mib": 57672,
+            "psi_ppm": 1000,
+            "epoch_us": 200000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d03",
+          "configuration": {
+            "minimum_local_mib": 45090,
+            "psi_ppm": 1000,
+            "epoch_us": 50000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d04",
+          "configuration": {
+            "minimum_local_mib": 35652,
+            "psi_ppm": 3000,
+            "epoch_us": 20000,
+            "cold_folios": 2,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 5000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "xsbench": {
+      "display_name": "XSBench",
+      "vm_memory_mib": 81920,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 50,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--gridpoints",
+          "102400",
+          "--lookups",
+          "17000000",
+          "--threads",
+          "4",
+          "--expected-checksum",
+          "969477"
+        ]
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d07",
+          "configuration": {
+            "minimum_local_mib": 74548,
+            "psi_ppm": 1000,
+            "epoch_us": 100000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 100000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d04",
+          "configuration": {
+            "minimum_local_mib": 68076,
+            "psi_ppm": 1000,
+            "epoch_us": 20000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 20000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d05",
+          "configuration": {
+            "minimum_local_mib": 61686,
+            "psi_ppm": 3000,
+            "epoch_us": 10000,
+            "cold_folios": 2,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "graph500": {
+      "display_name": "BFS",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 20,
+        "vcpus": 8,
+        "args": [
+          "--skip-build",
+          "--scale",
+          "25",
+          "--edgefactor",
+          "18",
+          "--threads",
+          "8",
+          "--bfs-iterations",
+          "32",
+          "--graph-cache",
+          "{inputs}/graph500/csr-s25-e18-n32-seed3737844653-v1.bin",
+          "--require-cache"
+        ],
+        "input_protocol": "csr-cache32-openmp-v1",
+        "cache_scope": "Generated edges, constructed CSR and fixed32 BFS roots; prepare outside measured runs; loaded data and32 verified BFS included in runtime"
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d01",
+          "configuration": {
+            "minimum_local_mib": 30558,
+            "psi_ppm": 1000,
+            "epoch_us": 200000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d02",
+          "configuration": {
+            "minimum_local_mib": 27018,
+            "psi_ppm": 1000,
+            "epoch_us": 50000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d11",
+          "configuration": {
+            "minimum_local_mib": 21804,
+            "psi_ppm": 100000,
+            "epoch_us": 20000,
+            "cold_folios": 64,
+            "sample_period": 512,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 1,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "graphchi": {
+      "display_name": "PageRank",
+      "vm_memory_mib": 49152,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 23,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--input",
+          "{inputs}/twitter-prefix-1050m.edgelist",
+          "--iterations",
+          "20",
+          "--threads",
+          "4",
+          "--membudget-mib",
+          "28000",
+          "--nshards",
+          "2"
+        ],
+        "prepare": {
+          "kind": "gzip-prefix",
+          "source": "benchmarks/dataset/twitter-2010/twitter-2010.txt.gz",
+          "records": 1050000000,
+          "output": "twitter-prefix-1050m.edgelist"
+        }
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d01",
+          "configuration": {
+            "minimum_local_mib": 43992,
+            "psi_ppm": 1000,
+            "epoch_us": 200000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d02",
+          "configuration": {
+            "minimum_local_mib": 35734,
+            "psi_ppm": 1000,
+            "epoch_us": 50000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d08",
+          "configuration": {
+            "minimum_local_mib": 26624,
+            "psi_ppm": 1000,
+            "epoch_us": 1000,
+            "cold_folios": 2,
+            "sample_period": 512,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 1000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "spark-kmeans": {
+      "display_name": "Spark-KMeans",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 15,
+        "vcpus": 8,
+        "args": [
+          "--input",
+          "{inputs}/km-prefix-30m.dat",
+          "--threads",
+          "8",
+          "--partitions",
+          "16",
+          "--driver-memory-mib",
+          "16384"
+        ],
+        "prepare": {
+          "kind": "prefix",
+          "source": "benchmarks/dataset/spark/km.dat",
+          "records": 30000000,
+          "output": "km-prefix-30m.dat"
+        }
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d06",
+          "configuration": {
+            "minimum_local_mib": 29164,
+            "psi_ppm": 1000,
+            "epoch_us": 100000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 100000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d07",
+          "configuration": {
+            "minimum_local_mib": 24840,
+            "psi_ppm": 1000,
+            "epoch_us": 20000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 20000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d01",
+          "configuration": {
+            "minimum_local_mib": 21300,
+            "psi_ppm": 1000,
+            "epoch_us": 10000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 2048,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "pvc": {
+      "display_name": "PVC",
+      "vm_memory_mib": 32768,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 16,
+        "vcpus": 4,
+        "args": [
+          "--skip-build",
+          "--input",
+          "{inputs}/pvc-1600m.bin",
+          "--threads",
+          "4",
+          "--repetitions",
+          "1"
+        ],
+        "prepare": {
+          "kind": "pvc",
+          "bytes": "1600MiB",
+          "output": "pvc-1600m.bin",
+          "note": "Synthetic PVC records; not Wikipedia English trace"
+        },
+        "reference_counts": {
+          "stage1_unique": 62914560,
+          "stage2_urls": 1000000,
+          "total_views": 62914560,
+          "checksum": 11119465522845651179
+        }
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d01",
+          "configuration": {
+            "minimum_local_mib": 30476,
+            "psi_ppm": 1000,
+            "epoch_us": 200000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d05",
+          "configuration": {
+            "minimum_local_mib": 26806,
+            "psi_ppm": 1000,
+            "epoch_us": 50000,
+            "cold_folios": 1,
+            "sample_period": 8192,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d06",
+          "configuration": {
+            "minimum_local_mib": 24052,
+            "psi_ppm": 3000,
+            "epoch_us": 20000,
+            "cold_folios": 2,
+            "sample_period": 512,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 1,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "cassandra": {
+      "display_name": "Cassandra",
+      "vm_memory_mib": 90112,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 48,
+        "vcpus": 12,
+        "args": [
+          "--records",
+          "4000000",
+          "--operations",
+          "1000000",
+          "--threads",
+          "16",
+          "--connections",
+          "8",
+          "--load-target",
+          "10000"
+        ],
+        "service_args": [
+          "--heap-mib",
+          "45056"
+        ]
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d08",
+          "configuration": {
+            "minimum_local_mib": 81552,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d09",
+          "configuration": {
+            "minimum_local_mib": 73712,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d12",
+          "configuration": {
+            "minimum_local_mib": 66144,
+            "psi_ppm": 1000,
+            "epoch_us": 100000,
+            "cold_folios": 1,
+            "sample_period": 512,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 1,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    },
+    "memcached": {
+      "display_name": "Memcached",
+      "vm_memory_mib": 73728,
+      "remote_pool_mib": 8192,
+      "workload_configuration": {
+        "target_peak_gib": 32,
+        "vcpus": 12,
+        "args": [
+          "--memory-mib",
+          "32768",
+          "--server-threads",
+          "12",
+          "--runtime",
+          "120",
+          "--rampup",
+          "2",
+          "--mpps",
+          "0.01",
+          "--warmup-keys",
+          "{inputs}/cachelib-8m.keys"
+        ],
+        "prepare": {
+          "kind": "cachelib-keys",
+          "source": "benchmarks/dataset/cachelib-kvcache-202206",
+          "records": 8000000,
+          "output": "cachelib-8m.keys"
+        }
+      },
+      "all_local": {
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000
+      },
+      "points": [
+        {
+          "name": "low",
+          "source_candidate": "d07",
+          "configuration": {
+            "minimum_local_mib": 67830,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 65536,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 15000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "medium",
+          "source_candidate": "d08",
+          "configuration": {
+            "minimum_local_mib": 58394,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 32768,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 10000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        },
+        {
+          "name": "high",
+          "source_candidate": "d09",
+          "configuration": {
+            "minimum_local_mib": 51316,
+            "psi_ppm": 1000,
+            "epoch_us": 400000,
+            "cold_folios": 1,
+            "sample_period": 16384,
+            "cooling_samples": 131072,
+            "hhh_interval_ms": 5000,
+            "free_pages": 512,
+            "pre_reclaim_headroom_mib": 0,
+            "pre_reclaim_epoch_us": 10000
+          }
+        }
+      ]
+    }
+  }
+}

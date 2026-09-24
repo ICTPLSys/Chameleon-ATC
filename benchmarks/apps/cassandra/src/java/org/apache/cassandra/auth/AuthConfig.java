@@ -1,0 +1,201 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.auth;
+
+import java.util.List;
+
+import com.google.common.annotations.VisibleForTesting;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.config.Config;
+import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.config.ParameterizedClass;
+import org.apache.cassandra.exceptions.ConfigurationException;
+
+/**
+ * Only purpose is to Initialize authentication/authorization via {@link #applyAuth()}.
+ * This is in this separate class as it implicitly initializes schema stuff (via classes referenced in here).
+ */
+public final class AuthConfig
+{
+    private static final Logger logger = LoggerFactory.getLogger(AuthConfig.class);
+
+    private static boolean initialized;
+
+    /**
+     * Resets the initialized flag, enabling AuthConfig to be reconfigured multiple times within a single
+     * test case.
+     */
+    @VisibleForTesting
+    static void reset()
+    {
+        initialized = false;
+    }
+
+    public static void applyAuth()
+    {
+        // some tests need this
+        if (initialized)
+            return;
+
+        initialized = true;
+
+        Config conf = DatabaseDescriptor.getRawConfig();
+
+
+        /* Authentication, authorization and role management backend, implementing IAuthenticator, I*Authorizer & IRoleManager */
+
+        IAuthenticator authenticator = authInstantiate(conf.authenticator, IAuthenticator.class, AllowAllAuthenticator.class);
+
+        // the configuration options regarding credentials caching are only guaranteed to
+        // work with PasswordAuthenticator, so log a message if some other authenticator
+        // is in use and non-default values are detected
+        if (!(authenticator instanceof PasswordAuthenticator || authenticator instanceof MutualTlsAuthenticator)
+            && (conf.credentials_update_interval != null
+                || conf.credentials_validity.toMilliseconds() != 2000
+                || conf.credentials_cache_max_entries != 1000))
+        {
+            logger.info("Configuration options credentials_update_interval, credentials_validity and " +
+                        "credentials_cache_max_entries may not be applicable for the configured authenticator ({})",
+                        authenticator.getClass().getName());
+        }
+
+        DatabaseDescriptor.setAuthenticator(authenticator);
+
+        // authorizer
+
+        IAuthorizer authorizer = authInstantiate(conf.authorizer, IAuthorizer.class, AllowAllAuthorizer.class);
+
+        if (!authenticator.requireAuthentication() && authorizer.requireAuthorization())
+        {
+            throw new ConfigurationException(authorizer.getClass().getName() + " has authorization enabled which requires " +
+                                             authenticator.getClass().getName() + " to enable authentication", false);
+        }
+
+        DatabaseDescriptor.setAuthorizer(authorizer);
+
+        // default role initializer: bootstraps the first role on a cluster which has none yet. Instantiated
+        // before the role manager because the role manager depends on it (see IRoleManager#defaultRoleInitializer).
+
+        IDefaultRoleInitializer defaultRoleInitializer = authInstantiate(conf.default_role_initializer,
+                                                                         IDefaultRoleInitializer.class,
+                                                                         PasswordDefaultRoleInitializer.instance);
+        DatabaseDescriptor.setDefaultRoleInitializer(defaultRoleInitializer);
+
+        // role manager
+
+        IRoleManager roleManager = authInstantiate(conf.role_manager, IRoleManager.class, CassandraRoleManager.class);
+
+        if (authenticator instanceof PasswordAuthenticator && !(roleManager instanceof CassandraRoleManager))
+            throw new ConfigurationException(authenticator.getClass().getName() + " requires " + CassandraRoleManager.class.getName(), false);
+
+        validateDefaultRoleInitializerSupportsRoleManager(conf.default_role_initializer, defaultRoleInitializer, roleManager);
+
+        DatabaseDescriptor.setRoleManager(roleManager);
+
+        // authenticator
+
+        IInternodeAuthenticator internodeAuthenticator = authInstantiate(conf.internode_authenticator,
+                                                                         IInternodeAuthenticator.class,
+                                                                         AllowAllInternodeAuthenticator.class);
+        DatabaseDescriptor.setInternodeAuthenticator(internodeAuthenticator);
+
+        // network authorizer
+
+        INetworkAuthorizer networkAuthorizer = authInstantiate(conf.network_authorizer,
+                                                               INetworkAuthorizer.class,
+                                                               AllowAllNetworkAuthorizer.class);
+
+        if (networkAuthorizer.requireAuthorization() && !authenticator.requireAuthentication())
+        {
+            throw new ConfigurationException(conf.network_authorizer + " can't be used with " + conf.authenticator.class_name, false);
+        }
+
+        DatabaseDescriptor.setNetworkAuthorizer(networkAuthorizer);
+
+        // cidr authorizer
+
+        ICIDRAuthorizer cidrAuthorizer = authInstantiate(conf.cidr_authorizer,
+                                                         ICIDRAuthorizer.class,
+                                                         AllowAllCIDRAuthorizer.class);
+
+        if (cidrAuthorizer.requireAuthorization() && !authenticator.requireAuthentication())
+        {
+            throw new ConfigurationException(conf.cidr_authorizer + " can't be used with " + conf.authenticator, false);
+        }
+
+        DatabaseDescriptor.setCIDRAuthorizer(cidrAuthorizer);
+
+        // Validate at last to have authenticator, authorizer, role-manager and internode-auth setup
+        // in case these rely on each other.
+
+        authenticator.validateConfiguration();
+        authorizer.validateConfiguration();
+        roleManager.validateConfiguration();
+        defaultRoleInitializer.validateConfiguration();
+        networkAuthorizer.validateConfiguration();
+        cidrAuthorizer.validateConfiguration();
+        DatabaseDescriptor.getInternodeAuthenticator().validateConfiguration();
+    }
+
+    @VisibleForTesting
+    static void validateDefaultRoleInitializerSupportsRoleManager(ParameterizedClass configuredInitializer,
+                                                                  IDefaultRoleInitializer defaultRoleInitializer,
+                                                                  IRoleManager roleManager)
+    {
+        boolean explicitlyConfigured = configuredInitializer != null && configuredInitializer.class_name != null;
+        if (explicitlyConfigured && !defaultRoleInitializer.supportsRoleManager(roleManager))
+            throw new ConfigurationException(defaultRoleInitializer.getClass().getName() + " does not support " + roleManager.getClass().getName(), false);
+    }
+
+    private static <T> T authInstantiate(ParameterizedClass authCls, Class<T> expectedType, Class<? extends T> defaultCls)
+    {
+        if (authCls != null && authCls.class_name != null)
+        {
+            String authPackage = AuthConfig.class.getPackage().getName();
+            return ParameterizedClass.newInstance(authCls, List.of("", authPackage), expectedType);
+        }
+
+        if (defaultCls == null)
+            return null;
+
+        // for now, this has to stay and can not be replaced by ParameterizedClass.newInstance as above
+        // due to that failing for simulator dtests. See CASSANDRA-20450 for more information.
+        try
+        {
+            return defaultCls.newInstance();
+        }
+        catch (InstantiationException | IllegalAccessException  e)
+        {
+            throw new ConfigurationException("Failed to instantiate " + defaultCls.getName(), e);
+        }
+    }
+
+    private static <T> T authInstantiate(ParameterizedClass authCls, Class<T> expectedType, T defaultInstance)
+    {
+        if (authCls != null && authCls.class_name != null)
+        {
+            String authPackage = AuthConfig.class.getPackage().getName();
+            return ParameterizedClass.newInstance(authCls, List.of("", authPackage), expectedType);
+        }
+        return defaultInstance;
+    }
+}

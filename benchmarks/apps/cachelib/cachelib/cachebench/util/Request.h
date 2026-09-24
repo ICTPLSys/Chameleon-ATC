@@ -1,0 +1,240 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+#include <folly/Format.h>
+#include <folly/Random.h>
+
+#include <atomic>
+#include <chrono>
+#include <ctime>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace facebook {
+namespace cachelib {
+namespace cachebench {
+
+// Operations that the stressor supports
+// They translate into the following cachelib operations
+//  Set: allocate + insertOrReplace
+//  get: find
+//  del: remove
+enum class OpType {
+  kSet = 0,
+  kGet,
+  kDel,
+
+  kAddChained, // allocate a parent and a certain number of chained items
+  // key will be randomly generated, operation will be get
+  kLoneGet,
+  kLoneSet,
+
+  kUpdate, // in-place mutation
+
+  kCouldExist,
+
+  kSize
+};
+
+enum class OpResultType {
+  kNop = 0,
+  kGetMiss,
+  kGetHit,
+  kSetSuccess,
+  kSetFailure,
+  kSetSkip,
+  kCouldExistTrue,
+  kCouldExistFalse
+};
+
+struct BinaryRequest {
+  uint8_t keySize_;
+  uint8_t op_;
+  uint16_t repeats_;
+  uint32_t ttl_;
+  uint64_t keyOffset_;
+  uint32_t valueSize_;
+
+  BinaryRequest() = default;
+
+  BinaryRequest(uint8_t keySize,
+                size_t valueSize,
+                uint16_t repeats,
+                uint8_t op,
+                uint32_t ttl,
+                size_t keyOffset)
+      : keySize_(keySize),
+        op_(op),
+        repeats_(repeats),
+        ttl_(ttl),
+        keyOffset_(keyOffset),
+        valueSize_(valueSize) {}
+
+  std::string_view getKey() const {
+    return std::string_view(reinterpret_cast<const char*>(this) + keyOffset_,
+                            keySize_);
+  }
+};
+
+struct Request {
+  Request(std::string& k,
+          std::vector<size_t>::iterator b,
+          std::vector<size_t>::iterator e)
+      : key(k), sizeBegin(b), sizeEnd(e) {}
+
+  Request(std::string& k,
+          std::vector<size_t>::iterator b,
+          std::vector<size_t>::iterator e,
+          OpType o)
+      : key(k), sizeBegin(b), sizeEnd(e), op(o) {}
+
+  Request(std::string& k,
+          std::vector<size_t>::iterator b,
+          std::vector<size_t>::iterator e,
+          OpType o,
+          uint64_t reqId)
+      : key(k), sizeBegin(b), sizeEnd(e), requestId(reqId), op(o) {}
+
+  Request(std::string_view k, size_t* b, OpType o, uint64_t reqId)
+      : key(k), sizeBegin(b), sizeEnd(b), requestId(reqId), op(o) {}
+
+  Request(std::string& k,
+          std::vector<size_t>::iterator b,
+          std::vector<size_t>::iterator e,
+          OpType o,
+          uint32_t ttl,
+          uint64_t reqId,
+          const std::unordered_map<std::string, std::string>& admFeatureM,
+          const std::string& value)
+      : key(k),
+        sizeBegin(b),
+        sizeEnd(e),
+        ttlSecs(ttl),
+        requestId(reqId),
+        admFeatureMap(admFeatureM),
+        itemValue(value),
+        op(o) {}
+
+  Request(std::string& k,
+          std::vector<size_t>::iterator b,
+          std::vector<size_t>::iterator e,
+          uint64_t reqId,
+          const Request& other)
+      : key(k),
+        sizeBegin(b),
+        sizeEnd(e),
+        ttlSecs(other.ttlSecs),
+        requestId(reqId),
+        admFeatureMap(other.admFeatureMap),
+        timestamp(other.timestamp),
+        itemValue(other.itemValue),
+        op(other.getOp()) {}
+
+  static std::string getUniqueKey() {
+    return std::string(folly::to<std::string>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count() +
+        folly::Random::rand32()));
+  }
+
+  Request(Request&& r) noexcept
+      : Request(r,
+                r.key.data() == r.onlineKeyString.data() &&
+                    r.key.size() == r.onlineKeyString.size()) {}
+  Request& operator=(Request&&) = delete;
+  ~Request() = default;
+  Request(const Request&) = delete;
+  Request& operator=(const Request&) = delete;
+
+  inline void update(std::string_view k,
+                     size_t* valueSize,
+                     OpType o,
+                     uint32_t ttl,
+                     uint64_t reqId) {
+    key = k;
+    op = o;
+    ttlSecs = ttl;
+    requestId = reqId;
+    sizeBegin = std::vector<size_t>::iterator(valueSize);
+    sizeEnd = std::vector<size_t>::iterator(valueSize);
+  }
+  OpType getOp() const noexcept { return op.load(); }
+  void setOp(OpType o) noexcept { op = o; }
+  const std::unordered_map<std::string, std::string>& getAdmFeatureMap()
+      const noexcept {
+    return admFeatureMap;
+  }
+
+  std::string_view key;
+
+  // For online generator, key will be created on the fly and should be valid
+  // until this request is processed. Since 'key' is a string_view type, this
+  // field will store the actual string for the lifetime of this request.
+  std::string onlineKeyString;
+
+  // size iterators in case this request is
+  // deemed to be a chained item.
+  // If not chained, the size is *sizeBegin
+  std::vector<size_t>::iterator sizeBegin;
+  std::vector<size_t>::iterator sizeEnd;
+
+  // TTL in seconds.
+  uint32_t ttlSecs{0};
+
+  std::optional<uint64_t> requestId;
+
+ private:
+  // Feature map for this request sample, which is used for for admission
+  // policy: feature name --> feature value
+  std::unordered_map<std::string, std::string> admFeatureMap;
+
+ public:
+  // Custom timestamp in second associated with the request
+  // May not have to be the same as wall clock
+  uint64_t timestamp{0};
+
+  // Use case specific data that will be included in the request. This can be
+  // used to track metadata that is specific to a particular application.
+  std::string itemValue;
+
+ private:
+  Request(Request& r, bool keyUsesOnlineKey) noexcept
+      : key(r.key),
+        onlineKeyString(std::move(r.onlineKeyString)),
+        sizeBegin(r.sizeBegin),
+        sizeEnd(r.sizeEnd),
+        ttlSecs(r.ttlSecs),
+        requestId(std::move(r.requestId)),
+        admFeatureMap(std::move(r.admFeatureMap)),
+        timestamp(r.timestamp),
+        itemValue(std::move(r.itemValue)),
+        op(r.getOp()) {
+    if (keyUsesOnlineKey) {
+      key = onlineKeyString;
+    }
+  }
+
+  std::atomic<OpType> op{OpType::kGet};
+};
+} // namespace cachebench
+} // namespace cachelib
+} // namespace facebook

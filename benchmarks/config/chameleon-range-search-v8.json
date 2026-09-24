@@ -1,0 +1,648 @@
+{
+  "version": 8,
+  "reason": "Fixed VM per application; measured low/middle/high reclamation with increasing slowdown. Actual swap/RDMA traffic is diagnostic only and is not required. Keep two measurements per configuration.",
+  "max_candidates": 16,
+  "max_points_per_capacity": 6,
+  "validation_repeats": 2,
+  "coverage_tolerance_pp": 0.25,
+  "remote_pool_mib": 8192,
+  "free_pages": 512,
+  "applications": {
+    "spark-kmeans": {
+      "memory_steps_mib": [
+        32768,
+        40960,
+        49152
+      ],
+      "measured_peak_mib": 14905.5390625,
+      "peak_rounded_mib": 15360,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-spark-v3-spark-kmeans-local/report.json",
+      "initial_local_floor_mib": 21234,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        11.0,
+        24.2,
+        43.5
+      ],
+      "reclaim_range": {
+        "low_max_percent": 15.4,
+        "middle_min_percent": 15.4,
+        "middle_max_percent": 30.8,
+        "high_min_percent": 33.0
+      }
+    },
+    "pvc": {
+      "memory_steps_mib": [
+        32768
+      ],
+      "measured_peak_mib": 16327.359375,
+      "peak_rounded_mib": 16384,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-pvc-local/report.json",
+      "initial_local_floor_mib": 25428,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        7.0,
+        18.2,
+        26.6
+      ],
+      "reclaim_range": {
+        "low_max_percent": 9.8,
+        "middle_min_percent": 9.8,
+        "middle_max_percent": 19.6,
+        "high_min_percent": 21.0
+      },
+      "pre_reclaim_headroom_mib": 0,
+      "pre_reclaim_epoch_us": 10000,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 200000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 50000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 3000,
+          "epoch_us": 20000,
+          "cold_folios": 2,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ],
+      "sample_period_ladder": [
+        65536,
+        32768,
+        16384,
+        8192,
+        2048,
+        512
+      ],
+      "tracking_search_reason": "Very small tracking-only response at 32768/16384/8192. Frozen 8192 candidate verified first; only if no accepted curve, use larger remaining sampling steps 2048/512 within kernel range and unchanged candidate budget.",
+      "frozen_low_middle_trial_ids": [
+        "d01",
+        "d05"
+      ],
+      "high_probe_anchor_trial_id": "d03",
+      "high_slowdown_min_exclusive_percent": 10,
+      "high_probe_overrides": [
+        {
+          "sample_period": 512,
+          "hhh_interval_ms": 1
+        }
+      ],
+      "high_probe_reason": "User requests PVC high slowdown>10%, preserving low d01/middle d05. Current kernel supports integer maintenance_interval_ms>=1 with CONFIG_HZ1000; first probe PEBS512/HHH1ms (500us not supported without kernel change), keep other d03 knobs and fixed112.87s baseline. Measure matched all-local overhead separately."
+    },
+    "xsbench": {
+      "memory_steps_mib": [
+        81920,
+        90112,
+        98304
+      ],
+      "measured_peak_mib": 51173.609375,
+      "peak_rounded_mib": 51200,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-xsbench-local/report.json",
+      "initial_local_floor_mib": 64882,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        9.0,
+        16.9,
+        24.7
+      ],
+      "reclaim_range": {
+        "low_max_percent": 9.1,
+        "middle_min_percent": 9.1,
+        "middle_max_percent": 18.2,
+        "high_min_percent": 19.5
+      },
+      "low_target_adjustment_reason": "Measured low RSS reclaim was only 4.3-4.7%; slower epochs did not consistently reduce cost. Lower floor 2GiB (76596 to74548 MiB), aim for measured low ~7%, preserve 80GiB VM and actual low-range bound9.1%."
+    },
+    "memcached": {
+      "memory_steps_mib": [
+        73728
+      ],
+      "measured_peak_mib": 32843.1953125,
+      "peak_rounded_mib": 33792,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-memcached-local/report.json",
+      "initial_local_floor_mib": 42664,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        8.0,
+        20.8,
+        30.4
+      ],
+      "reclaim_range": {
+        "low_max_percent": 11.2,
+        "middle_min_percent": 11.2,
+        "middle_max_percent": 22.4,
+        "high_min_percent": 24.0
+      },
+      "pre_reclaim_headroom_mib": 0,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ],
+      "capacity_tracking_restart_reason": "User authorized larger fixed VM and higher local floors, with tracking frequency varied across reclaim levels; pre-reclaim to floor before launch. Retain previous failures, measure a new same-VM pinned tracked all-local. No claim that this resolves network/storage symptoms until measured.",
+      "pre_reclaim_epoch_us": 10000,
+      "runtime_epoch_reason": "Memcached same-capacity/preparation tests:100ms P95+85.50%,200ms+29.31%,400ms+2.98%. Use400ms as initial control period and vary PEBS/HHH for middle/high. Cassandra transfer is a starting hypothesis, not a measured result.",
+      "flat_throughput_tolerance_pp": 1.0,
+      "flat_throughput_reason": "User explicitly allows near-flat throughput at fixed offered load; keep increasing P95, both reference comparisons, two observations and functional checks."
+    },
+    "cassandra": {
+      "memory_steps_mib": [
+        90112
+      ],
+      "measured_peak_mib": 47531.21484375,
+      "peak_rounded_mib": 48128,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-retry-v2-cassandra-local/report.json",
+      "initial_local_floor_mib": 57214,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        9.5,
+        18.2,
+        26.6
+      ],
+      "reclaim_range": {
+        "low_max_percent": 9.8,
+        "middle_min_percent": 9.8,
+        "middle_max_percent": 19.6,
+        "high_min_percent": 21.0
+      },
+      "low_target_adjustment_reason": "d01 P95 origin-to-low line exceeds reference; test lower floor66724MiB at unchanged72GiB VM,100ms,PEBS65536,HHH15s. Preserve measured low-range limit9.8% and old data.",
+      "pre_reclaim_headroom_mib": 0,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 400000,
+          "cold_folios": 1,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ],
+      "capacity_tracking_restart_reason": "User authorized larger fixed VM and higher local floors, with tracking frequency varied across reclaim levels; pre-reclaim to floor before launch. Retain previous failures, measure a new same-VM pinned tracked all-local. No claim that this resolves network/storage symptoms until measured.",
+      "pre_reclaim_epoch_us": 10000,
+      "runtime_epoch_reason": "Memcached same-capacity/preparation tests:100ms P95+85.50%,200ms+29.31%,400ms+2.98%. Use400ms as initial control period and vary PEBS/HHH for middle/high. Cassandra transfer is a starting hypothesis, not a measured result.",
+      "frozen_low_middle_trial_ids": [
+        "d08",
+        "d09"
+      ],
+      "high_probe_anchor_trial_id": "d11",
+      "high_probe_overrides": [
+        {
+          "epoch_us": 100000
+        }
+      ],
+      "high_probe_reason": "User explicitly requests100ms (100000us) control epoch instead of proposed300ms. Keep low/middle, VM90112MiB, high floor66144MiB, PSI1000ppm, cold1, PEBS512, HHH1ms unchanged.",
+      "high_slowdown_min_exclusive_percent": 2.5936064584976437
+    },
+    "liblinear": {
+      "memory_steps_mib": [
+        65536
+      ],
+      "measured_peak_mib": 32446.70703125,
+      "peak_rounded_mib": 32768,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-liblinear-local/report.json",
+      "initial_local_floor_mib": 36544,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        12.0,
+        31.2,
+        45.6
+      ],
+      "reclaim_range": {
+        "low_max_percent": 16.8,
+        "middle_min_percent": 16.8,
+        "middle_max_percent": 33.6,
+        "high_min_percent": 36.0
+      },
+      "pre_reclaim_headroom_mib": 0,
+      "pre_reclaim_epoch_us": 10000,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 200000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 50000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 3000,
+          "epoch_us": 20000,
+          "cold_folios": 2,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ]
+    },
+    "graphchi": {
+      "memory_steps_mib": [
+        49152
+      ],
+      "measured_peak_mib": 24541.5,
+      "peak_rounded_mib": 24576,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/table2-apps-v1-graphchi-local/report.json",
+      "initial_local_floor_mib": 28638,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        10.5,
+        27.3,
+        39.9
+      ],
+      "reclaim_range": {
+        "low_max_percent": 14.7,
+        "middle_min_percent": 14.7,
+        "middle_max_percent": 29.4,
+        "high_min_percent": 31.5
+      },
+      "pre_reclaim_headroom_mib": 0,
+      "pre_reclaim_epoch_us": 10000,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 200000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 50000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 3000,
+          "epoch_us": 20000,
+          "cold_folios": 2,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ],
+      "baseline_suffix": "-pin2-spacefix1",
+      "baseline_retry_reason": "Original same-capacity all-local exited during work-disk preflight (no timed PageRank). Regenerable dropped YCSB snapshots cleaned offline, 114.56GiB now available. Retain original FAIL and use first successful tracked all-local under a fresh ID.",
+      "frozen_low_middle_trial_ids": [
+        "d01",
+        "d02"
+      ],
+      "high_probe_anchor_trial_id": "d03",
+      "high_slowdown_min_exclusive_percent": 10,
+      "high_probe_overrides": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 1000,
+          "cold_folios": 2,
+          "sample_period": 512,
+          "hhh_interval_ms": 1000,
+          "minimum_local_mib": 26624
+        }
+      ],
+      "high_probe_allow_floor_reduction": true,
+      "high_probe_reason": "User requested26GiB local floor after22GiB OOM. Only floor changes from d07; PEBS512,HHH1000ms,PSI1000ppm,epoch1000us,cold2 unchanged."
+    },
+    "graph500": {
+      "memory_steps_mib": [
+        32768
+      ],
+      "measured_peak_mib": 19991.984375,
+      "peak_rounded_mib": 20480,
+      "os_headroom_mib": 2048,
+      "peak_source": "benchmarks/results/chameleon/f78freq-graph500-b32768-pin2-csr32-graph500-local/report.json",
+      "initial_local_floor_mib": 25692,
+      "previous_candidate_count": 0,
+      "remaining_candidates": 16,
+      "coverage_targets_percent": [
+        6.75,
+        17.55,
+        25.65
+      ],
+      "reclaim_range": {
+        "low_max_percent": 9.45,
+        "middle_min_percent": 9.45,
+        "middle_max_percent": 18.9,
+        "high_min_percent": 20.25
+      },
+      "pre_reclaim_headroom_mib": 0,
+      "pre_reclaim_epoch_us": 10000,
+      "coverage_templates": [
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 200000,
+          "cold_folios": 1,
+          "sample_period": 65536,
+          "hhh_interval_ms": 15000
+        },
+        {
+          "psi_ppm": 1000,
+          "epoch_us": 50000,
+          "cold_folios": 1,
+          "sample_period": 32768,
+          "hhh_interval_ms": 10000
+        },
+        {
+          "psi_ppm": 3000,
+          "epoch_us": 20000,
+          "cold_folios": 2,
+          "sample_period": 16384,
+          "hhh_interval_ms": 5000
+        }
+      ],
+      "baseline_suffix": "-pin2-csr32",
+      "baseline_retry_reason": "New user-requested cached CSR/32 BFS protocol with real OpenMP. Previous64 BFS serial binary observation is archived, not a denominator.",
+      "frozen_low_middle_trial_ids": [
+        "d01",
+        "d02"
+      ],
+      "high_probe_anchor_trial_id": "d03",
+      "high_slowdown_min_exclusive_percent": 13,
+      "high_probe_overrides": [
+        {
+          "minimum_local_mib": 21804,
+          "sample_period": 512,
+          "hhh_interval_ms": 1,
+          "cold_folios": 64,
+          "psi_ppm": 100000
+        }
+      ],
+      "high_probe_reason": "User requests one additional trial: PSI10% (100000ppm), cold64; other d10 knobs unchanged: VM32768MiB, floor21804MiB, epoch20000us, PEBS512, HHH1ms. Fixed all-local171.92s.",
+      "high_probe_allow_floor_reduction": true,
+      "reference_comparison_mode": "per-baseline-overlap"
+    }
+  },
+  "policy_templates": [
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 10000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.05
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 10000,
+      "cold_folios": 2,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 10000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.95
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 5000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.025
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 5000,
+      "cold_folios": 8,
+      "local_peak_fraction": 0.9
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 2000,
+      "cold_folios": 2,
+      "local_peak_fraction": 0.925
+    },
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 5000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.1
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 20000,
+      "cold_folios": 2,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 5000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.975
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 10000,
+      "cold_folios": 8,
+      "local_peak_fraction": 0.9
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 10000,
+      "cold_folios": 16,
+      "local_peak_fraction": 0.85
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 20000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.95
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 2000,
+      "cold_folios": 1,
+      "local_peak_fraction": 1.0
+    },
+    {
+      "psi_ppm": 10000,
+      "epoch_us": 10000,
+      "cold_folios": 2,
+      "local_peak_fraction": 0.925
+    },
+    {
+      "psi_ppm": 30000,
+      "epoch_us": 5000,
+      "cold_folios": 4,
+      "local_peak_fraction": 0.85
+    },
+    {
+      "psi_ppm": 100000,
+      "epoch_us": 20000,
+      "cold_folios": 16,
+      "local_peak_fraction": 0.8
+    }
+  ],
+  "strategy": "tracking_range_coverage",
+  "pre_reclaim_headroom_mib": 2048,
+  "initial_local_floor_reason": "At least measured peak plus 4GiB, and leave points inside supplied interpolation domain (80% of shared maximum reclamation); floor remains independently tunable.",
+  "tracking": {
+    "sample_period": 65536,
+    "cooling_samples": 131072,
+    "hhh_interval_ms": 15000
+  },
+  "baseline_protocol": "all-local-pebs-hhh-on-v1",
+  "run_prefix": "f78freq",
+  "max_candidates_per_coverage_band": 5,
+  "coverage_templates": [
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 100000,
+      "cold_folios": 1,
+      "sample_period": 65536,
+      "hhh_interval_ms": 15000
+    },
+    {
+      "psi_ppm": 1000,
+      "epoch_us": 20000,
+      "cold_folios": 1,
+      "sample_period": 32768,
+      "hhh_interval_ms": 15000
+    },
+    {
+      "psi_ppm": 3000,
+      "epoch_us": 10000,
+      "cold_folios": 2,
+      "sample_period": 16384,
+      "hhh_interval_ms": 15000
+    }
+  ],
+  "preparation_reason": "Preserve original high-range 2048 MiB preparation headroom; compare runtime tracking settings at fixed VM capacity.",
+  "reference_tolerance_pp": 1.0,
+  "reference_criterion": "point-and-mean-excess-at-most-1pp-with-strict-audit-v1",
+  "tracking_search": true,
+  "performance_reference": "fixed-tracking-with-matched-diagnostic-v1",
+  "sample_period_ladder": [
+    65536,
+    32768,
+    16384,
+    8192
+  ],
+  "hhh_interval_ladder_ms": [
+    15000,
+    10000,
+    5000
+  ],
+  "include_all_local_anchor": true,
+  "require_coverage_bands": false,
+  "vm_search_after_candidates": null,
+  "reuse_matched_tracking_diagnostics": true,
+  "count_initial_measurement": true,
+  "max_mean_reversal_pp": 1.0,
+  "trend_from_reclaimed_only": true,
+  "page_out_required": false,
+  "execution_protocol": "physical-core-vcpu-and-guest-taskset-v1",
+  "baseline_suffix": "-pin2",
+  "tracking_baseline_retries": {
+    "b73728-pin2-s16384-c131072-h15000": "b73728-pin2-s16384-c131072-h15000-r2",
+    "b49152-pin2-spacefix1-s65536-c131072-h15000": "b49152-p2sf1-s65536-c131072-h15000",
+    "b49152-pin2-spacefix1-s65536-c131072-h10000": "b49152-p2sf1-s65536-c131072-h10000",
+    "b49152-pin2-spacefix1-s65536-c131072-h5000": "b49152-p2sf1-s65536-c131072-h5000",
+    "b49152-pin2-spacefix1-s32768-c131072-h15000": "b49152-p2sf1-s32768-c131072-h15000",
+    "b49152-pin2-spacefix1-s32768-c131072-h10000": "b49152-p2sf1-s32768-c131072-h10000",
+    "b49152-pin2-spacefix1-s32768-c131072-h5000": "b49152-p2sf1-s32768-c131072-h5000",
+    "b49152-pin2-spacefix1-s16384-c131072-h15000": "b49152-p2sf1-s16384-c131072-h15000",
+    "b49152-pin2-spacefix1-s16384-c131072-h10000": "b49152-p2sf1-s16384-c131072-h10000",
+    "b49152-pin2-spacefix1-s16384-c131072-h5000": "b49152-p2sf1-s16384-c131072-h5000",
+    "b49152-pin2-spacefix1-s8192-c131072-h15000": "b49152-p2sf1-s8192-c131072-h15000",
+    "b49152-pin2-spacefix1-s8192-c131072-h10000": "b49152-p2sf1-s8192-c131072-h10000",
+    "b49152-pin2-spacefix1-s8192-c131072-h5000": "b49152-p2sf1-s8192-c131072-h5000",
+    "b49152-pin2-spacefix1-s4096-c131072-h15000": "b49152-p2sf1-s4096-c131072-h15000",
+    "b49152-pin2-spacefix1-s4096-c131072-h10000": "b49152-p2sf1-s4096-c131072-h10000",
+    "b49152-pin2-spacefix1-s4096-c131072-h5000": "b49152-p2sf1-s4096-c131072-h5000",
+    "b49152-pin2-spacefix1-s2048-c131072-h15000": "b49152-p2sf1-s2048-c131072-h15000",
+    "b49152-pin2-spacefix1-s2048-c131072-h10000": "b49152-p2sf1-s2048-c131072-h10000",
+    "b49152-pin2-spacefix1-s2048-c131072-h5000": "b49152-p2sf1-s2048-c131072-h5000",
+    "b49152-pin2-spacefix1-s512-c131072-h15000": "b49152-p2sf1-s512-c131072-h15000",
+    "b49152-pin2-spacefix1-s512-c131072-h10000": "b49152-p2sf1-s512-c131072-h10000",
+    "b49152-pin2-spacefix1-s512-c131072-h5000": "b49152-p2sf1-s512-c131072-h5000-r1",
+    "b49152-pin2-spacefix1-s512-c131072-h1000": "b49152-p2sf1-s512-c131072-h1000",
+    "b49152-pin2-spacefix1-s512-c131072-h100": "b49152-p2sf1-s512-c131072-h100",
+    "b49152-p2sf1-s512-c131072-h5000": "b49152-p2sf1-s512-c131072-h5000-r1",
+    "b49152-pin2-spacefix1-s512-c131072-h1": "b49152-p2sf1-s512-c131072-h1",
+    "b49152-pin2-spacefix1-s512-c131072-h5": "b49152-p2sf1-s512-c131072-h5",
+    "b49152-pin2-spacefix1-s512-c131072-h10": "b49152-p2sf1-s512-c131072-h10",
+    "b32768-pin2-csr32-s65536-c131072-h15000": "b32768-c32-s65536-h15000",
+    "b32768-pin2-csr32-s65536-c131072-h10000": "b32768-c32-s65536-h10000",
+    "b32768-pin2-csr32-s65536-c131072-h5000": "b32768-c32-s65536-h5000",
+    "b32768-pin2-csr32-s32768-c131072-h15000": "b32768-c32-s32768-h15000",
+    "b32768-pin2-csr32-s32768-c131072-h10000": "b32768-c32-s32768-h10000",
+    "b32768-pin2-csr32-s32768-c131072-h5000": "b32768-c32-s32768-h5000",
+    "b32768-pin2-csr32-s16384-c131072-h15000": "b32768-c32-s16384-h15000",
+    "b32768-pin2-csr32-s16384-c131072-h10000": "b32768-c32-s16384-h10000",
+    "b32768-pin2-csr32-s16384-c131072-h5000": "b32768-c32-s16384-h5000-r2",
+    "b32768-pin2-csr32-s8192-c131072-h15000": "b32768-c32-s8192-h15000",
+    "b32768-pin2-csr32-s8192-c131072-h10000": "b32768-c32-s8192-h10000",
+    "b32768-pin2-csr32-s8192-c131072-h5000": "b32768-c32-s8192-h5000",
+    "b32768-pin2-csr32-s2048-c131072-h5000": "b32768-c32-s2048-h5000",
+    "b32768-pin2-csr32-s2048-c131072-h1000": "b32768-c32-s2048-h1000",
+    "b32768-pin2-csr32-s2048-c131072-h100": "b32768-c32-s2048-h100",
+    "b32768-pin2-csr32-s2048-c131072-h20": "b32768-c32-s2048-h20",
+    "b32768-pin2-csr32-s512-c131072-h5000": "b32768-c32-s512-h5000",
+    "b32768-pin2-csr32-s512-c131072-h1000": "b32768-c32-s512-h1000",
+    "b32768-pin2-csr32-s512-c131072-h100": "b32768-c32-s512-h100-r3",
+    "b32768-pin2-csr32-s512-c131072-h20": "b32768-c32-s512-h20",
+    "b32768-pin2-csr32-s512-c131072-h1": "b32768-c32-s512-h1",
+    "b90112-pin2-s16384-c131072-h5000": "b90112-s16384-h5000-r1",
+    "b90112-pin2-s512-c131072-h1000": "b90112-s512-h1000-r1"
+  },
+  "normalization_protocol": "fixed-first-capacity-all-local-v1",
+  "normalization_reason": "User explicitly requests one fixed first same-capacity tracked all-local denominator across repeats, while preserving each round all-local and alternative normalization.",
+  "mean_reference_tolerance_pp": 1.0,
+  "mean_reference_reason": "Apply the user's earlier allowance for small slowdown crossings/noise also to mean segments; the previous zero-crossing mean rule was assistant-added. Preserve strict zero-tolerance result and actual excess; do not claim strict dominance.",
+  "cassandra_load_acceptance": "load-insert-errors-nonfatal-v1"
+}

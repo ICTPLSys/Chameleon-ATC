@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "selected_utc": "2026-09-23T03:05:14.019689+00:00",
+  "application": "graphchi",
+  "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+  "selection_reason": "User requested retain d08 (10.3031% slowdown) as high point, stop repeat and move to next application. Low and middle remain d01 and d02.",
+  "vm_memory_mib": 49152,
+  "remote_pool_mib": 8192,
+  "workload_configuration": {
+    "target_peak_gib": 23,
+    "vcpus": 4,
+    "status": "measured-pass",
+    "args": [
+      "--skip-build",
+      "--input",
+      "{inputs}/twitter-prefix-1050m.edgelist",
+      "--iterations",
+      "20",
+      "--threads",
+      "4",
+      "--membudget-mib",
+      "28000",
+      "--nshards",
+      "2"
+    ],
+    "prepare": {
+      "kind": "gzip-prefix",
+      "source": "benchmarks/dataset/twitter-2010/twitter-2010.txt.gz",
+      "records": 1050000000,
+      "output": "twitter-prefix-1050m.edgelist"
+    },
+    "selection_note": "Merge buffering has discrete allocation steps. The selected 1.05B-edge / two-shard / 28000-MiB-budget configuration passed the complete Guest run.",
+    "measurement": {
+      "case": "graphchi",
+      "run": "benchmarks/results/chameleon/table2-apps-v1-graphchi-local",
+      "target_peak_gib": 23,
+      "tolerance_percent": 10,
+      "status": "PASS",
+      "observed_peak_gib": 23.96630859375,
+      "error_percent": 4.201341711956519,
+      "within_target": true,
+      "memory_mib": 26590,
+      "application_check": {
+        "status": "EXIT_ONLY",
+        "scope": "GraphChi execution completed; PageRank output retained, no independent numerical oracle"
+      }
+    }
+  },
+  "cpu_affinity_profile": {
+    "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+    "host_numa_node": 0,
+    "vcpu_host_cpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "qemu_service_cpus": [
+      4,
+      5
+    ],
+    "guest_application_cpus": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "all_local": {
+    "trial_id": "b49152-pin2-spacefix1",
+    "report": "benchmarks/results/chameleon/f78freq-graphchi-b49152-pin2-spacefix1-graphchi-local/report.json",
+    "performance": {
+      "runtime_seconds": 971.26,
+      "cost": 971.26,
+      "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+      "time_files": [
+        "benchmarks/results/chameleon/f78freq-graphchi-b49152-pin2-spacefix1-graphchi-local/graphchi/application/20260922T215340Z/time.txt"
+      ]
+    },
+    "tracking_profile": {
+      "sampling": 65536,
+      "cooling": 131072,
+      "hhh_interval_ms": 15000
+    },
+    "normalized_point": {
+      "reclaim_percent": 0,
+      "slowdown_percent": 0
+    },
+    "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases graphchi --vm-memory-mib 49152 --run-mode all-local --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+  },
+  "points": [
+    {
+      "role": "low",
+      "trial_id": "d01",
+      "configuration": {
+        "vm_memory_mib": 49152,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 43992.0,
+        "psi_ppm": 1000,
+        "epoch_us": 200000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graphchi-d01-graphchi-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 953.72,
+          "cost": 953.72,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graphchi-d01-graphchi-on/graphchi/application/20260922T221447Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 10.394755999247229,
+        "slowdown_percent": -1.8059016123386118,
+        "reference_status": "PASS",
+        "comparison_error": null,
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "GraphChi execution completed; PageRank output retained, no independent numerical oracle"
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 249561088,
+            "read_bytes": 165675008,
+            "write_completions": 119,
+            "read_completions": 79,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 51,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 5375,
+            "low_epochs": 5242,
+            "high_epochs": 133,
+            "psi_some_ns": 792582505,
+            "psi_full_ns": 417522776,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graphchi --vm-memory-mib 49152 --run-mode chameleon --sample-seconds 1 --timeout 3485 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 200000 --cold-folios 1 --minimum-local-mib 43992"
+    },
+    {
+      "role": "middle",
+      "trial_id": "d02",
+      "configuration": {
+        "vm_memory_mib": 49152,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 35734.0,
+        "psi_ppm": 1000,
+        "epoch_us": 50000,
+        "cold_folios": 1,
+        "sample_period": 32768,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 10000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graphchi-d02-graphchi-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 976.18,
+          "cost": 976.18,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graphchi-d02-graphchi-on/graphchi/application/20260922T230031Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 27.06420681176125,
+        "slowdown_percent": 0.5065584910322718,
+        "reference_status": "PASS",
+        "comparison_error": null,
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "GraphChi execution completed; PageRank output retained, no independent numerical oracle"
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 2725064704,
+            "read_bytes": 2391539712,
+            "write_completions": 1510,
+            "read_completions": 1332,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 543,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 21686,
+            "low_epochs": 20269,
+            "high_epochs": 1417,
+            "psi_some_ns": 2232330269,
+            "psi_full_ns": 1290302619,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graphchi --vm-memory-mib 49152 --run-mode chameleon --sample-seconds 1 --timeout 3485 --cpu-pinning --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 50000 --cold-folios 1 --minimum-local-mib 35734"
+    },
+    {
+      "role": "high",
+      "trial_id": "d08",
+      "configuration": {
+        "vm_memory_mib": 49152,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "minimum_local_mib": 26624.0,
+        "psi_ppm": 1000,
+        "epoch_us": 1000,
+        "cold_folios": 2,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graphchi-d08-graphchi-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 1071.33,
+          "cost": 1071.33,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graphchi-d08-graphchi-on/graphchi/application/20260923T023023Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 45.73372509837993,
+        "slowdown_percent": 10.303111422276201,
+        "reference_status": "FAIL",
+        "comparison_error": "Outside reference interpolation domain",
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "EXIT_ONLY",
+          "scope": "GraphChi execution completed; PageRank output retained, no independent numerical oracle"
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 10269229056,
+            "read_bytes": 9647554560,
+            "write_completions": 8857,
+            "read_completions": 6293,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 573,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 778946,
+            "low_epochs": 775272,
+            "high_epochs": 3674,
+            "psi_some_ns": 5826648496,
+            "psi_full_ns": 4700155207,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "qemu_service_cpus": [
+            4,
+            5
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graphchi --vm-memory-mib 49152 --run-mode chameleon --sample-seconds 1 --timeout 3485 --cpu-pinning --all-local-tracking --sample-period 512 --cooling-samples 131072 --hhh-interval-ms 1000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 1000 --cold-folios 2 --minimum-local-mib 26624"
+    }
+  ],
+  "qualification": {
+    "selected_high_functional_status": "PASS",
+    "selected_high_slowdown_over_10_percent": true,
+    "two_completed_passing_observations": false,
+    "reference_extrapolation_performed": false,
+    "reference_note": "d08 retains original FAIL/Outside reference interpolation domain; selection is user-directed, not automatic full-curve acceptance.",
+    "interrupted_repeat": "v26r2-d08",
+    "interrupted_repeat_note": "Stopped by user after one policy EINVAL was observed; partial run is not a second successful observation."
+  },
+  "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json"
+}

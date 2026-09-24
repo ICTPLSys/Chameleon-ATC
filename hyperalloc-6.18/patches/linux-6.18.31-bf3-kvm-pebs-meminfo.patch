@@ -1,0 +1,238 @@
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -1503,6 +1503,8 @@
+ 
+ 	bool bus_lock_detection_enabled;
+ 	bool enable_pmu;
++	/* Immutable after the first vCPU is created; private opt-in ABI. */
++	bool hyperalloc_pebs_meminfo;
+ 
+ 	u32 notify_window;
+ 	u32 notify_vmexit_flags;
+diff --git a/arch/x86/include/uapi/asm/kvm_para.h b/arch/x86/include/uapi/asm/kvm_para.h
+--- a/arch/x86/include/uapi/asm/kvm_para.h
++++ b/arch/x86/include/uapi/asm/kvm_para.h
+@@ -58,6 +58,10 @@
+ #define MSR_KVM_ASYNC_PF_INT	0x4b564d06
+ #define MSR_KVM_ASYNC_PF_ACK	0x4b564d07
+ #define MSR_KVM_MIGRATION_CONTROL	0x4b564d08
++
++/* Private, read-only: format-4 basic + MEMINFO records, exactly 64 bytes. */
++#define MSR_KVM_HYPERALLOC_PEBS_MEMINFO	0x4b564d10
++#define KVM_HYPERALLOC_PEBS_MEMINFO_ABI	1
+ 
+ struct kvm_steal_time {
+ 	__u64 steal;
+diff --git a/arch/x86/kvm/pmu.c b/arch/x86/kvm/pmu.c
+--- a/arch/x86/kvm/pmu.c
++++ b/arch/x86/kvm/pmu.c
+@@ -28,6 +28,30 @@
+ 
+ /* Unadultered PMU capabilities of the host, i.e. of hardware. */
+ static struct x86_pmu_capability __read_mostly kvm_host_pmu;
++
++bool kvm_pmu_has_hyperalloc_pebs_meminfo(void)
++{
++	static const struct x86_cpu_id cpus[] = {
++		X86_MATCH_VFM(INTEL_ICELAKE_X, NULL),
++		X86_MATCH_VFM(INTEL_ICELAKE_D, NULL),
++		{}
++	};
++	u64 perf_cap;
++
++	/*
++	 * On ICX/D, perf sets ds_pebs from X86_FEATURE_PEBS, loads intel_cap
++	 * directly from this MSR, and sets pebs_no_isolation only for PMU v4
++	 * and earlier.  The older-model isolation quirks do not apply here.
++	 * Use the existing perf capability ABI so a matching KVM module can
++	 * be loaded without replacing the host perf implementation.
++	 */
++	return enable_pmu && tdp_enabled && x86_match_cpu(cpus) &&
++		kvm_host_pmu.version > 4 && kvm_host_pmu.pebs_ept &&
++		boot_cpu_has(X86_FEATURE_PEBS) && boot_cpu_has(X86_FEATURE_PDCM) &&
++		!rdmsrq_safe(MSR_IA32_PERF_CAPABILITIES, &perf_cap) &&
++		(perf_cap & PERF_CAP_PEBS_BASELINE) &&
++		(perf_cap & PERF_CAP_PEBS_FORMAT) == (4ULL << 8);
++}
+ 
+ /* KVM's PMU capabilities, i.e. the intersection of KVM and hardware support. */
+ struct x86_pmu_capability __read_mostly kvm_pmu_cap;
+@@ -1130,6 +1154,12 @@
+ 		goto cleanup;
+ 
+ 	mutex_lock(&kvm->lock);
++	/* Serialize both opt-in directions; adaptive sampling defeats filters. */
++	if (kvm->arch.hyperalloc_pebs_meminfo) {
++		mutex_unlock(&kvm->lock);
++		r = -EINVAL;
++		goto cleanup;
++	}
+ 	filter = rcu_replace_pointer(kvm->arch.pmu_event_filter, filter,
+ 				     mutex_is_locked(&kvm->lock));
+ 	mutex_unlock(&kvm->lock);
+diff --git a/arch/x86/kvm/pmu.h b/arch/x86/kvm/pmu.h
+--- a/arch/x86/kvm/pmu.h
++++ b/arch/x86/kvm/pmu.h
+@@ -43,6 +43,7 @@
+ };
+ 
+ void kvm_pmu_ops_update(const struct kvm_pmu_ops *pmu_ops);
++bool kvm_pmu_has_hyperalloc_pebs_meminfo(void);
+ 
+ static inline bool kvm_pmu_has_perf_global_ctrl(struct kvm_pmu *pmu)
+ {
+diff --git a/arch/x86/kvm/vmx/pmu_intel.c b/arch/x86/kvm/vmx/pmu_intel.c
+--- a/arch/x86/kvm/vmx/pmu_intel.c
++++ b/arch/x86/kvm/vmx/pmu_intel.c
+@@ -199,6 +199,8 @@
+ 		ret = guest_cpu_cap_has(vcpu, X86_FEATURE_DS);
+ 		break;
+ 	case MSR_PEBS_DATA_CFG:
++		if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++			return false;
+ 		perf_capabilities = vcpu_get_perf_capabilities(vcpu);
+ 		ret = (perf_capabilities & PERF_CAP_PEBS_BASELINE) &&
+ 			((perf_capabilities & PERF_CAP_PEBS_FORMAT) > 3);
+@@ -413,6 +415,8 @@
+ 		pmu->ds_area = data;
+ 		break;
+ 	case MSR_PEBS_DATA_CFG:
++		if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++			return 1;
+ 		if (data & pmu->pebs_data_cfg_rsvd)
+ 			return 1;
+ 
+@@ -627,11 +631,16 @@
+ 	lbr_desc->records.nr = 0;
+ 	lbr_desc->event = NULL;
+ 	lbr_desc->msr_passthrough = false;
++	if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++		pmu->pebs_data_cfg = PEBS_DATACFG_MEMINFO;
+ }
+ 
+ static void intel_pmu_reset(struct kvm_vcpu *vcpu)
+ {
+ 	intel_pmu_release_guest_lbr_event(vcpu);
++	/* RESET and CPUID/PERF_CAPABILITIES refresh cannot change the layout. */
++	if (vcpu->kvm->arch.hyperalloc_pebs_meminfo)
++		vcpu_to_pmu(vcpu)->pebs_data_cfg = PEBS_DATACFG_MEMINFO;
+ }
+ 
+ /*
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -4291,6 +4291,9 @@
+ 			return 1;
+ 		break;
+ 
++	case MSR_KVM_HYPERALLOC_PEBS_MEMINFO:
++		/* Read-only even for userspace migration/restore operations. */
++		return 1;
+ 	case MSR_KVM_POLL_CONTROL:
+ 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
+ 			return KVM_MSR_RET_UNSUPPORTED;
+@@ -4645,6 +4648,15 @@
+ 			return KVM_MSR_RET_UNSUPPORTED;
+ 
+ 		msr_info->data = vcpu->arch.pv_eoi.msr_val;
++		break;
++	case MSR_KVM_HYPERALLOC_PEBS_MEMINFO:
++		if (!vcpu->kvm->arch.hyperalloc_pebs_meminfo ||
++		    !vcpu_to_pmu(vcpu)->version ||
++		    !guest_cpu_cap_has(vcpu, X86_FEATURE_PDCM) ||
++		    (vcpu->arch.perf_capabilities & PERF_CAP_PEBS_FORMAT) !=
++		    (4ULL << 8))
++			return 1;
++		msr_info->data = KVM_HYPERALLOC_PEBS_MEMINFO_ABI;
+ 		break;
+ 	case MSR_KVM_POLL_CONTROL:
+ 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
+@@ -5089,6 +5101,9 @@
+ 	case KVM_CAP_PMU_CAPABILITY:
+ 		r = enable_pmu ? KVM_CAP_PMU_VALID_MASK : 0;
+ 		break;
++	case KVM_CAP_HYPERALLOC_PEBS_MEMINFO:
++		r = kvm_pmu_has_hyperalloc_pebs_meminfo();
++		break;
+ 	case KVM_CAP_DISABLE_QUIRKS2:
+ 		r = kvm_caps.supported_quirks;
+ 		break;
+@@ -6854,6 +6869,26 @@
+ 		return -EINVAL;
+ 
+ 	switch (cap->cap) {
++	case KVM_CAP_HYPERALLOC_PEBS_MEMINFO:
++		r = -EINVAL;
++		if (cap->args[0] != 1 || cap->args[1] ||
++		    cap->args[2] || cap->args[3])
++			break;
++		r = -EOPNOTSUPP;
++		if (!kvm_pmu_has_hyperalloc_pebs_meminfo())
++			break;
++		mutex_lock(&kvm->lock);
++		r = -EBUSY;
++		if (kvm->created_vcpus)
++			goto pebs_meminfo_unlock;
++		r = -EINVAL;
++		if (!kvm->arch.enable_pmu || kvm->arch.pmu_event_filter)
++			goto pebs_meminfo_unlock;
++		kvm->arch.hyperalloc_pebs_meminfo = true;
++		r = 0;
++pebs_meminfo_unlock:
++		mutex_unlock(&kvm->lock);
++		break;
+ 	case KVM_CAP_DISABLE_QUIRKS2:
+ 		r = -EINVAL;
+ 		if (cap->args[0] & ~kvm_caps.supported_quirks)
+@@ -7016,7 +7051,9 @@
+ 			break;
+ 
+ 		mutex_lock(&kvm->lock);
+-		if (!kvm->created_vcpus) {
++		if (!kvm->created_vcpus &&
++		    !(kvm->arch.hyperalloc_pebs_meminfo &&
++		      (cap->args[0] & KVM_PMU_CAP_DISABLE))) {
+ 			kvm->arch.enable_pmu = !(cap->args[0] & KVM_PMU_CAP_DISABLE);
+ 			r = 0;
+ 		}
+diff --git a/include/uapi/linux/kvm.h b/include/uapi/linux/kvm.h
+--- a/include/uapi/linux/kvm.h
++++ b/include/uapi/linux/kvm.h
+@@ -936,6 +936,8 @@
+ #define KVM_CAP_PPC_AIL_MODE_3 210
+ #define KVM_CAP_S390_MEM_OP_EXTENSION 211
+ #define KVM_CAP_PMU_CAPABILITY 212
++/* Private HyperAlloc research ABI; not an upstream KVM capability number. */
++#define KVM_CAP_HYPERALLOC_PEBS_MEMINFO 0x48410001
+ #define KVM_CAP_DISABLE_QUIRKS2 213
+ #define KVM_CAP_VM_TSC_CONTROL 214
+ #define KVM_CAP_SYSTEM_EVENT_DATA 215
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -138,7 +138,7 @@
+ static bool __read_mostly enable_guest_pebs_baseline;
+ module_param_named(guest_pebs_baseline, enable_guest_pebs_baseline, bool, 0444);
+ MODULE_PARM_DESC(guest_pebs_baseline,
+-		 "Allow unsafe guest baseline/adaptive PEBS exposure for debugging");
++		 "Deprecated and ignored; guest baseline/adaptive PEBS stays hidden");
+ 
+ #define MSR_BITMAP_MODE_X2APIC		1
+ #define MSR_BITMAP_MODE_X2APIC_APICV	2
+@@ -7961,11 +7961,10 @@
+ 		 *    guest via adaptive PEBS, and make adaptive PEBS mutually
+ 		 *    exclusive with KVM_SET_PMU_EVENT_FILTER if necessary.
+ 		 *
+-		 * Chameleon debug: allow controlled local experiments to expose
+-		 * baseline/adaptive PEBS to the guest and verify PERF_SAMPLE_ADDR.
++		 * The legacy guest_pebs_baseline parameter is ignored.  The
++		 * private MEMINFO protocol does not expose baseline PEBS.
+ 		 */
+-		if (!enable_guest_pebs_baseline)
+-			perf_cap &= ~PERF_CAP_PEBS_BASELINE;
++		perf_cap &= ~PERF_CAP_PEBS_BASELINE;
+ 	}
+ 
+ 	return perf_cap;

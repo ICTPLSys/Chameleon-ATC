@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "figure": "fig9",
+  "kind": "pre-measured",
+  "source": "Author-provided pre-measured baseline results",
+  "provenance": "Author-provided baseline results measured before artifact evaluation, as confirmed by the author. The artifact combines these fixed results with reviewer-run Chameleon measurements.",
+  "systems": [
+    "HyperAlloc",
+    "HyperAlloc+Memtis",
+    "Static"
+  ],
+  "mixes": {
+    "mix1": {
+      "50%": {
+        "HyperAlloc": {
+          "slowdown_percent": 70.1,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 52.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 103.0,
+          "kind": "pre-measured"
+        }
+      },
+      "75%": {
+        "HyperAlloc": {
+          "slowdown_percent": 28.0,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 20.5,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 31.0,
+          "kind": "pre-measured"
+        }
+      }
+    },
+    "mix2": {
+      "50%": {
+        "HyperAlloc": {
+          "slowdown_percent": 60.0,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 44.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 65.0,
+          "kind": "pre-measured"
+        }
+      },
+      "75%": {
+        "HyperAlloc": {
+          "slowdown_percent": 19.5,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 14.8,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 13.5,
+          "kind": "pre-measured"
+        }
+      }
+    },
+    "mix3": {
+      "50%": {
+        "HyperAlloc": {
+          "slowdown_percent": 68.0,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 51.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 89.0,
+          "kind": "pre-measured"
+        }
+      },
+      "75%": {
+        "HyperAlloc": {
+          "slowdown_percent": 25.5,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 18.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 29.0,
+          "kind": "pre-measured"
+        }
+      }
+    },
+    "mix4": {
+      "50%": {
+        "HyperAlloc": {
+          "slowdown_percent": 118.0,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 82.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 155.0,
+          "kind": "pre-measured"
+        }
+      },
+      "75%": {
+        "HyperAlloc": {
+          "slowdown_percent": 37.0,
+          "kind": "pre-measured"
+        },
+        "HyperAlloc+Memtis": {
+          "slowdown_percent": 29.0,
+          "kind": "pre-measured"
+        },
+        "Static": {
+          "slowdown_percent": 51.0,
+          "kind": "pre-measured"
+        }
+      }
+    }
+  },
+  "default_branch": "75%"
+}

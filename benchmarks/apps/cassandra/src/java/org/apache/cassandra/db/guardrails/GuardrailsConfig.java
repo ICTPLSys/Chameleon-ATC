@@ -1,0 +1,760 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.cassandra.db.guardrails;
+
+import java.util.Map;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
+import org.apache.cassandra.config.DataStorageSpec;
+import org.apache.cassandra.config.DurationSpec;
+import org.apache.cassandra.db.ConsistencyLevel;
+
+/**
+ * Configuration settings for guardrails.
+ *
+ * <p>Note that the settings here must only be used by the {@link Guardrails} class and not directly by the code
+ * checking each guarded constraint (which, again, should use the higher level abstractions defined in
+ * {@link Guardrails}).
+ *
+ * <p>We have 2 variants of guardrails, soft (warn) and hard (fail) limits, each guardrail having either one of the
+ * variants or both. Note in particular that hard limits only make sense for guardrails triggering during query
+ * execution. For other guardrails, say one triggering during compaction, aborting that compaction does not make sense.
+ *
+ * <p>Additionally, each individual setting should have a specific value (typically -1 for numeric settings),
+ * that allows to disable the corresponding guardrail.
+ * <p>
+ * This configuration is offered as an interface so different implementations of {@link GuardrailsConfigProvider} can
+ * provide different implementations of this config. However, this mechanism for guardrails config pluggability is not
+ * officially supported and this interface may change in a minor release.
+ */
+public interface GuardrailsConfig
+{
+    /**
+     * @return The threshold to warn when creating more user keyspaces than threshold.
+     */
+    int getKeyspacesWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating more user keyspaces than threshold.
+     */
+    int getKeyspacesFailThreshold();
+
+    /**
+     * @return The threshold to warn when creating more user tables than threshold.
+     */
+    int getTablesWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating more user tables than threshold.
+     */
+    int getTablesFailThreshold();
+
+    /**
+     * @return The threshold to warn when creating more columns per table than threshold.
+     */
+    int getColumnsPerTableWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating more columns per table than threshold.
+     */
+    int getColumnsPerTableFailThreshold();
+
+    /**
+     * @return The threshold to warn when creating more secondary indexes per table than threshold.
+     */
+    int getSecondaryIndexesPerTableWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating more secondary indexes per table than threshold.
+     */
+    int getSecondaryIndexesPerTableFailThreshold();
+
+    /**
+     * @return Whether creation of secondary indexes is allowed.
+     */
+    boolean getSecondaryIndexesEnabled();
+
+    /**
+     * @return The threshold to warn when creating more materialized views per table than threshold.
+     */
+    int getMaterializedViewsPerTableWarnThreshold();
+
+    /**
+     * @return The threshold to warn when partition keys in select more than threshold.
+     */
+    int getPartitionKeysInSelectWarnThreshold();
+
+    /**
+     * @return The threshold to fail when partition keys in select more than threshold.
+     */
+    int getPartitionKeysInSelectFailThreshold();
+
+    /**
+     * @return The threshold to fail when creating more materialized views per table than threshold.
+     */
+    int getMaterializedViewsPerTableFailThreshold();
+
+    /**
+     * @return The table properties that are warned about when creating or altering a table.
+     */
+    Set<String> getTablePropertiesWarned();
+
+    /**
+     * @return The table properties that are ignored when creating or altering a table.
+     */
+    Set<String> getTablePropertiesIgnored();
+
+    /**
+     * @return The table properties that are disallowed when creating or altering a table.
+     */
+    Set<String> getTablePropertiesDisallowed();
+
+    /**
+     * @return The keyspace properties that are warned about when creating or altering a keyspace.
+     */
+    Set<String> getKeyspacePropertiesWarned();
+
+    /**
+     * @return The keyspace properties that are ignored when creating or altering a keyspace.
+     */
+    Set<String> getKeyspacePropertiesIgnored();
+
+    /**
+     * @return The keyspace properties that are disallowed when creating or altering a keyspace.
+     */
+    Set<String> getKeyspacePropertiesDisallowed();
+
+    /**
+     * Returns whether user-provided timestamps are allowed.
+     *
+     * @return {@code true} if user-provided timestamps are allowed, {@code false} otherwise.
+     */
+    boolean getUserTimestampsEnabled();
+
+    /**
+     * Returns whether users are allowed access to the ALTER TABLE statement to mutate columns or not
+     *
+     * @return {@code true} if ALTER TABLE ADD/REMOVE/RENAME is allowed, {@code false} otherwise.
+     */
+    boolean getAlterTableEnabled();
+
+    /**
+     * Returns whether tables can be uncompressed
+     *
+     * @return {@code true} if user's can disable compression, {@code false} otherwise.
+     */
+    boolean getUncompressedTablesEnabled();
+
+    /**
+     * Returns whether users can create new COMPACT STORAGE tables
+     *
+     * @return {@code true} if allowed, {@code false} otherwise.
+     */
+    boolean getCompactTablesEnabled();
+
+    /**
+     * Returns whether GROUP BY functionality is allowed
+     *
+     * @return {@code true} if allowed, {@code false} otherwise.
+     */
+    boolean getGroupByEnabled();
+
+    /**
+     * Returns whether TRUNCATE or DROP table are allowed
+     *
+     * @return {@code true} if allowed, {@code false} otherwise.
+     */
+    boolean getDropTruncateTableEnabled();
+
+    /**
+     * Returns whether DROP on keyspaces is allowed
+     *
+     * @return {@code true} if allowed, {@code false} otherwise.
+     */
+    boolean getDropKeyspaceEnabled();
+
+    /**
+     * Returns whether bulk load of SSTables is allowed
+     *
+     * @return {@code true} if allowed, {@code false} otherwise.
+     */
+    boolean getBulkLoadEnabled();
+
+    /**
+     * @return The threshold to warn when page size exceeds given size.
+     */
+    int getPageSizeWarnThreshold();
+
+    /**
+     * @return The threshold to fail when page size exceeds given size.
+     */
+    int getPageSizeFailThreshold();
+
+    /**
+     * Returns whether list operations that require read before write are allowed.
+     *
+     * @return {@code true} if list operations that require read before write are allowed, {@code false} otherwise.
+     */
+    boolean getReadBeforeWriteListOperationsEnabled();
+
+    /**
+     * Returns whether ALLOW FILTERING property is allowed.
+     *
+     * @return {@code true} if ALLOW FILTERING is allowed, {@code false} otherwise.
+     */
+    boolean getAllowFilteringEnabled();
+
+    /**
+     * Returns whether setting SimpleStrategy via keyspace creation or alteration is enabled
+     *
+     * @return {@code true} if SimpleStrategy is allowed, {@code false} otherwise.
+     */
+    boolean getSimpleStrategyEnabled();
+
+    /**
+     * @return The threshold to warn when an IN query creates a cartesian product with a size exceeding threshold.
+     * -1 means disabled.
+     */
+    public int getInSelectCartesianProductWarnThreshold();
+
+    /**
+     * @return The threshold to prevent IN queries creating a cartesian product with a size exceeding threshold.
+     * -1 means disabled.
+     */
+    public int getInSelectCartesianProductFailThreshold();
+
+    /**
+     * @return The consistency levels that are warned about when reading.
+     */
+    Set<ConsistencyLevel> getReadConsistencyLevelsWarned();
+
+    /**
+     * @return The consistency levels that are disallowed when reading.
+     */
+    Set<ConsistencyLevel> getReadConsistencyLevelsDisallowed();
+
+    /**
+     * @return The consistency levels that are warned about when writing.
+     */
+    Set<ConsistencyLevel> getWriteConsistencyLevelsWarned();
+
+    /**
+     * @return The consistency levels that are disallowed when writing.
+     */
+    Set<ConsistencyLevel> getWriteConsistencyLevelsDisallowed();
+
+    /**
+     * @return The threshold to warn when writing partitions larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getPartitionSizeWarnThreshold();
+
+    /**
+     * @return The threshold to fail when writing partitions larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getPartitionSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when writing partitions with more tombstones than threshold.
+     */
+    long getPartitionTombstonesWarnThreshold();
+
+    /**
+     * @return The threshold to fail when writing partitions with more tombstones than threshold.
+     */
+    long getPartitionTombstonesFailThreshold();
+
+    /**
+     * @return The threshold to warn when writing column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnValueSizeWarnThreshold();
+
+    /**
+     * @return The threshold to prevent writing column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnValueSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when writing ascii column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnAsciiValueSizeWarnThreshold();
+
+
+    /**
+     * @return The threshold to prevent writing ascii column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnAsciiValueSizeFailThreshold();
+
+    /**
+     * @return The threshold to whan when writing blob column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnBlobValueSizeWarnThreshold();
+
+
+    /**
+     * @return The threshold to prevent writing column blob values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnBlobValueSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when writing text column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnTextAndVarcharValueSizeWarnThreshold();
+
+
+    /**
+     * @return The threshold to prevent writing text column values larger than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getColumnTextAndVarcharValueSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when encountering a collection with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionSizeWarnThreshold();
+
+    /**
+     * @return The threshold to prevent collections with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when encountering a map collection with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionMapSizeWarnThreshold();
+
+    /**
+     * @return The threshold to prevent map collections with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionMapSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when encountering a set collection with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionSetSizeWarnThreshold();
+
+    /**
+     * @return The threshold to prevent set collections with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionSetSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when encountering a list collection with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionListSizeWarnThreshold();
+
+    /**
+     * @return The threshold to prevent list collections with larger data size than threshold.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getCollectionListSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when encountering more elements in a collection than threshold.
+     */
+    int getItemsPerCollectionWarnThreshold();
+
+    /**
+     * @return The threshold to prevent collections with more elements than threshold.
+     */
+    int getItemsPerCollectionFailThreshold();
+
+    /**
+     * @return The threshold to warn when creating a UDT with more fields than threshold.
+     */
+    int getFieldsPerUDTWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating a UDT with more fields than threshold.
+     */
+    int getFieldsPerUDTFailThreshold();
+
+    /**
+     * @return Whether new columns can be created with vector type
+     */
+    boolean getVectorTypeEnabled();
+
+    /**
+     * Sets whether new columns can be created with vector type
+     *
+     * @param enabled
+     */
+    void setVectorTypeEnabled(boolean enabled);
+
+    /**
+     * @return The threshold to warn when creating a vector with more dimensions than threshold.
+     */
+    int getVectorDimensionsWarnThreshold();
+
+    /**
+     * @return The threshold to fail when creating a vector with more dimensions than threshold.
+     */
+    int getVectorDimensionsFailThreshold();
+
+    /**
+     * @return The threshold to warn when local disk usage percentage exceeds that threshold.
+     * Allowed values are in the range {@code [1, 100]}, and -1 means disabled.
+     */
+    int getDataDiskUsagePercentageWarnThreshold();
+
+    /**
+     * @return The threshold to fail when local disk usage percentage exceeds that threshold.
+     * Allowed values are in the range {@code [1, 100]}, and -1 means disabled.
+     */
+    int getDataDiskUsagePercentageFailThreshold();
+
+    /**
+     * @return Whether a single node replicating a given keyspace being full should block writes for the entire
+     * keyspace. Returns {@code true} if this behavior is enabled, {@code false} otherwise.
+     */
+    boolean getDataDiskUsageKeyspaceWideProtectionEnabled();
+
+    /**
+     * Enables or disables blocking writes for a keyspace when any node replicating that keyspace is full.
+     *
+     * @param enabled {@code true} to block writes keyspace-wide once a replica is full, {@code false} to disable.
+     */
+    void setDataDiskUsageKeyspaceWideProtectionEnabled(boolean enabled);
+
+    /**
+     * @return The max disk size of the data directories when calculating disk usage thresholds, {@code null} means
+     * disabled.
+     */
+    @Nullable
+    DataStorageSpec.LongBytesBound getDataDiskUsageMaxDiskSize();
+
+    /**
+     * @return The threshold to warn when replication factor is lesser than threshold.
+     */
+    int getMinimumReplicationFactorWarnThreshold();
+
+    /**
+     * @return The threshold to fail when replication factor is lesser than threshold.
+     */
+    int getMinimumReplicationFactorFailThreshold();
+
+    /**
+     * @return The threshold to fail when the CMS size (aggregate replication factor across DCs) is below the threshold.
+     */
+    int getMinimumCmsSizeFailThreshold();
+
+    /**
+     * @return The threshold to warn when replication factor is greater than threshold.
+     */
+    int getMaximumReplicationFactorWarnThreshold();
+
+    /**
+     * @return The threshold to fail when replication factor is greater than threshold.
+     */
+    int getMaximumReplicationFactorFailThreshold();
+
+    /**
+     * Returns whether warnings will be emitted when usage of 0 default TTL on a
+     * table with TimeWindowCompactionStrategy is detected.
+     *
+     * @return {@code true} if warnings will be emitted, {@code false} otherwise.
+     */
+    boolean getZeroTTLOnTWCSWarned();
+
+    /**
+     * Sets whether warnings will be emitted when usage of 0 default TTL on a
+     * table with TimeWindowCompactionStrategy is detected.
+     *
+     * @param value {@code true} if warning will be emitted, {@code false} otherwise.
+     */
+    void setZeroTTLOnTWCSWarned(boolean value);
+
+    /**
+     * Returns whether it is allowed to create or alter table to use 0 default TTL with TimeWindowCompactionStrategy.
+     * If it is not, such query will fail.
+     *
+     * @return {@code true} if 0 default TTL is allowed on TWCS table, {@code false} otherwise.
+     */
+    boolean getZeroTTLOnTWCSEnabled();
+
+    /**
+     * Sets whether users can use 0 default TTL on a table with TimeWindowCompactionStrategy.
+     *
+     * @param value {@code true} if 0 default TTL on TWCS tables is allowed, {@code false} otherwise.
+     */
+    void setZeroTTLOnTWCSEnabled(boolean value);
+
+    /**
+     * @return true if a client warning is emitted for a filtering query with an intersection on mutable columns at a 
+     *         consistency level requiring coordinator reconciliation
+     */
+    boolean getIntersectFilteringQueryWarned();
+
+    void setIntersectFilteringQueryWarned(boolean value);
+
+    /**
+     * @return true if it is possible to execute a filtering query with an intersection on mutable columns at a 
+     *         consistency level requiring coordinator reconciliation
+     */
+    boolean getIntersectFilteringQueryEnabled();
+
+    void setIntersectFilteringQueryEnabled(boolean value);
+
+    /**
+     * @return A timestamp that if a user supplied timestamp is after will trigger a warning
+     */
+    @Nullable
+    DurationSpec.LongMicrosecondsBound getMaximumTimestampWarnThreshold();
+
+    /**
+     * @return A timestamp that if a user supplied timestamp is after will cause a failure
+     */
+    @Nullable
+    DurationSpec.LongMicrosecondsBound getMaximumTimestampFailThreshold();
+
+    /**
+     * Sets the warning upper bound for user supplied timestamps
+     *
+     * @param warn The highest acceptable difference between now and the written value timestamp before triggering a
+     *             warning. {@code null} means disabled.
+     * @param fail The highest acceptable difference between now and the written value timestamp before triggering a
+     *             failure. {@code null} means disabled.
+     */
+    void setMaximumTimestampThreshold(@Nullable DurationSpec.LongMicrosecondsBound warn,
+                                      @Nullable DurationSpec.LongMicrosecondsBound fail);
+
+    /**
+     * @return A timestamp that if a user supplied timestamp is before will trigger a warning
+     */
+    @Nullable
+    DurationSpec.LongMicrosecondsBound getMinimumTimestampWarnThreshold();
+
+    /**
+     * @return A timestamp that if a user supplied timestamp is after will trigger a warning
+     */
+    @Nullable
+    DurationSpec.LongMicrosecondsBound getMinimumTimestampFailThreshold();
+
+    /**
+     * Sets the warning lower bound for user supplied timestamps
+     *
+     * @param warn The lowest acceptable difference between now and the written value timestamp before triggering a
+     *             warning. {@code null} means disabled.
+     * @param fail The lowest acceptable difference between now and the written value timestamp before triggering a
+     *             failure. {@code null} means disabled.
+     */
+    void setMinimumTimestampThreshold(@Nullable DurationSpec.LongMicrosecondsBound warn,
+                                      @Nullable DurationSpec.LongMicrosecondsBound fail);
+
+    /**
+     * @return the warning threshold for the number of SAI SSTable indexes searched by a query
+     */
+    int getSaiSSTableIndexesPerQueryWarnThreshold();
+
+    /**
+     * @return the failure threshold for the number of SAI SSTable indexes searched by a query
+     */
+    int getSaiSSTableIndexesPerQueryFailThreshold();
+
+    /**
+     * Sets warning and failure thresholds for the number of SAI SSTable indexes searched by a query
+     *
+     * @param warn value to set for warn threshold
+     * @param fail value to set for fail threshold
+     */
+    void setSaiSSTableIndexesPerQueryThreshold(int warn, int fail);
+
+    /**
+     * @return the warning threshold for the size of string terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiStringTermSizeWarnThreshold();
+
+    /**
+     * @return the failure threshold for the size of string terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiStringTermSizeFailThreshold();
+
+    /**
+     * Sets warning and failure thresholds for the size of string terms written to an SAI index
+     *
+     * @param warn value to set for warn threshold
+     * @param fail value to set for fail threshold
+     */
+    void setSaiStringTermSizeThreshold(@Nullable DataStorageSpec.LongBytesBound warn, @Nullable DataStorageSpec.LongBytesBound fail);
+
+    /**
+     * @return the warning threshold for the size of blob terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiBlobTermSizeWarnThreshold();
+
+    /**
+     * @return the failure threshold for the size of blob terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiBlobTermSizeFailThreshold();
+
+    /**
+     * Sets warning and failure thresholds for the size of blob terms written to an SAI index
+     *
+     * @param warn value to set for warn threshold
+     * @param fail value to set for fail threshold
+     */
+    void setSaiBlobTermSizeThreshold(@Nullable DataStorageSpec.LongBytesBound warn, @Nullable DataStorageSpec.LongBytesBound fail);
+
+    /**
+     * @return the warning threshold for the size of frozen terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiFrozenTermSizeWarnThreshold();
+
+    /**
+     * @return the failure threshold for the size of frozen terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiFrozenTermSizeFailThreshold();
+
+    /**
+     * Sets warning and failure thresholds for the size of frozen terms written to an SAI index
+     *
+     * @param warn value to set for warn threshold
+     * @param fail value to set for fail threshold
+     */
+    void setSaiFrozenTermSizeThreshold(@Nullable DataStorageSpec.LongBytesBound warn, @Nullable DataStorageSpec.LongBytesBound fail);
+
+    /**
+     * @return the warning threshold for the size of vector terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiVectorTermSizeWarnThreshold();
+
+    /**
+     * @return the failure threshold for the size of vector terms written to an SAI index
+     */
+    DataStorageSpec.LongBytesBound getSaiVectorTermSizeFailThreshold();
+
+    /**
+     * Sets warning and failure thresholds for the size of vector terms written to an SAI index
+     *
+     * @param warn value to set for warn threshold
+     * @param fail value to set for fail threshold
+     */
+    void setSaiVectorTermSizeThreshold(@Nullable DataStorageSpec.LongBytesBound warn, @Nullable DataStorageSpec.LongBytesBound fail);
+
+    /**
+     * Returns whether it is possible to execute a query against secondary indexes without specifying
+     * any partition key restrictions.
+     *
+     * @return true if it is possible to execute a query without a partition key, false otherwise
+     */
+    boolean getNonPartitionRestrictedQueryEnabled();
+
+    /**
+     * Sets whether it is possible to execute a query against indexes (secondary or SAI) without specifying
+     * any partition key restrictions.
+     *
+     * @param enabled {@code true} if a query without partition key is enabled or not
+     */
+    void setNonPartitionRestrictedQueryEnabled(boolean enabled);
+
+    /**
+     * @return configuration for password policy guardrail.
+     */
+    CustomGuardrailConfig getPasswordPolicyConfig();
+
+    /**
+     * @return configuration for role name policy guardrail.
+     */
+    CustomGuardrailConfig getRoleNamePolicyConfig();
+
+    /**
+     * Sets whether a user will be warned when creating a table with a dictionary-based compressor which
+     * does not have any limit how often dictionaries can be trained.
+     *
+     * @param value value to set
+     */
+    void setUnsetTrainingMinFrequencyWarned(boolean value);
+
+    /**
+     *
+     * @return true if a user will be warned when training compression dictionaries for tables backed by
+     * dictionary compressor as frequently as needed, without any limits, false otherwise.
+     */
+    boolean getUnsetTrainingMinFrequencyWarned();
+
+    /**
+     * Sets whether it is allowed to create a table with a dictionary-based compressor which
+     * does not have any limit how often dictionaries can be trained.
+     *
+     * @param value value to set
+     */
+    void setUnsetTrainingMinFrequencyEnabled(boolean value);
+
+    /**
+     *
+     * @return true if it is possible to train compression dictionaries for tables backed by
+     * dictionary compressor as frequently as needed, without any limits, false otherwise.
+     */
+    boolean getUnsetTrainingMinFrequencyEnabled();
+
+    /**
+     * @return a map of driver name to minimum version that triggers a warning when the client's
+     * driver version is below the specified minimum.
+     */
+    Map<String, String> getMinimumClientDriverVersionsWarned();
+
+    /**
+     * @return a map of driver name to minimum version that triggers a failure when the client's
+     * driver version is below the specified minimum.
+     */
+    Map<String, String> getMinimumClientDriverVersionsDisallowed();
+
+    /**
+     * @return {@code true} if a warning is logged when a prepared statement is created without parameters,
+     * {@code false} otherwise.
+     */
+    boolean getPreparedStatementsRequireParametersWarned();
+
+    /**
+     * @return {@code true} if creating a prepared statement without parameters is rejected,
+     * {@code false} otherwise.
+     */
+    boolean getPreparedStatementsRequireParametersEnabled();
+
+    /**
+     * Sets whether to log a warning when a prepared statement is created without parameters.
+     *
+     * @param warned {@code true} to enable the warning, {@code false} to disable it.
+     */
+    void setPreparedStatementsRequireParametersWarned(boolean warned);
+
+    /**
+     * Sets whether to reject creating a prepared statement without parameters.
+     *
+     * @param enabled {@code true} to reject, {@code false} to allow.
+     */
+    void setPreparedStatementsRequireParametersEnabled(boolean enabled);
+}

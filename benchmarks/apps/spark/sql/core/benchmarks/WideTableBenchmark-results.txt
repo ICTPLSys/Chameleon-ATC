@@ -1,0 +1,17 @@
+================================================================================================
+projection on wide table
+================================================================================================
+
+OpenJDK 64-Bit Server VM 17.0.20+8-LTS on Linux 6.17.0-1020-azure
+Intel(R) Xeon(R) 6973P-C
+projection on wide table:                 Best Time(ms)   Avg Time(ms)   Stdev(ms)    Rate(M/s)   Per Row(ns)   Relative
+------------------------------------------------------------------------------------------------------------------------
+split threshold 10                                  953            967          15          1.1         908.8       1.0X
+split threshold 100                                 655            657           3          1.6         624.5       1.5X
+split threshold 1024                                557            570           8          1.9         531.0       1.7X
+split threshold 2048                                492            500          13          2.1         468.7       1.9X
+split threshold 4096                                536            540           3          2.0         511.3       1.8X
+split threshold 8192                                948            952           5          1.1         903.8       1.0X
+split threshold 65536                              7188           7256          86          0.1        6855.3       0.1X
+
+

@@ -1,0 +1,549 @@
+{
+  "schema_version": 1,
+  "selected_utc": "2026-09-23T05:33:46.822408+00:00",
+  "application": "graph500",
+  "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
+  "selection_reason": "User selected d11 high (12.232434% slowdown), retaining d01 low/d02 middle and moving to next application; single-observation selection, >13% target waived for this selection, no claim of two-repeat acceptance.",
+  "vm_memory_mib": 32768,
+  "remote_pool_mib": 8192,
+  "workload_configuration": {
+    "target_peak_gib": 20,
+    "vcpus": 8,
+    "status": "cached32-openmp",
+    "args": [
+      "--skip-build",
+      "--scale",
+      "25",
+      "--edgefactor",
+      "18",
+      "--threads",
+      "8",
+      "--bfs-iterations",
+      "32",
+      "--graph-cache",
+      "{inputs}/graph500/csr-s25-e18-n32-seed3737844653-v1.bin",
+      "--require-cache"
+    ],
+    "previous_protocol_measurement": {
+      "case": "graph500",
+      "run": "benchmarks/results/chameleon/table2-g500-v2",
+      "target_peak_gib": 20,
+      "tolerance_percent": 10,
+      "status": "PASS",
+      "observed_peak_gib": 19.530010223388672,
+      "error_percent": -2.3499488830566406,
+      "within_target": true,
+      "memory_mib": 22048,
+      "application_check": {
+        "status": "PASS",
+        "validated_bfs": 64
+      }
+    },
+    "input_protocol": "csr-cache32-openmp-v1",
+    "cache_scope": "Generated edges, constructed CSR and fixed32 BFS roots; prepare outside measured runs; loaded data and32 verified BFS included in runtime"
+  },
+  "cpu_affinity_profile": {
+    "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+    "host_numa_node": 0,
+    "vcpu_host_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "qemu_service_cpus": [
+      8,
+      9
+    ],
+    "guest_application_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "all_local": {
+    "trial_id": "b32768-pin2-csr32",
+    "report": "benchmarks/results/chameleon/f78freq-graph500-b32768-pin2-csr32-graph500-local/report.json",
+    "performance": {
+      "runtime_seconds": 171.92000000000002,
+      "cost": 171.92000000000002,
+      "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+      "time_files": [
+        "benchmarks/results/chameleon/f78freq-graph500-b32768-pin2-csr32-graph500-local/graph500/application/20260923T033450Z/time.txt"
+      ]
+    },
+    "tracking_profile": {
+      "sampling": 65536,
+      "cooling": 131072,
+      "hhh_interval_ms": 15000
+    },
+    "normalized_point": {
+      "reclaim_percent": 0,
+      "slowdown_percent": 0
+    },
+    "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_ALL_LOCAL_NAME --cases graph500 --reprofile --profile-only --profile-memory-mib 32768 --sample-seconds 1 --timeout 14400 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000"
+  },
+  "points": [
+    {
+      "role": "low",
+      "trial_id": "d01",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "minimum_local_mib": 30558.0,
+        "psi_ppm": 1000,
+        "epoch_us": 200000,
+        "cold_folios": 1,
+        "sample_period": 65536,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 15000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graph500-d01-graph500-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 173.5,
+          "cost": 173.5,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graph500-d01-graph500-on/graph500/application/20260923T034036Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 6.576486777614898,
+        "slowdown_percent": 0.919032107957185,
+        "reference_status": "PASS",
+        "reference_point_coverage": {
+          "fig7": {
+            "HyperAlloc": {
+              "reference_domain": [
+                0,
+                27
+              ],
+              "status": "COMPARED"
+            },
+            "HyperAlloc+Memtis": {
+              "reference_domain": [
+                0,
+                34
+              ],
+              "status": "COMPARED"
+            }
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "validated_bfs": 32,
+          "expected_bfs": 32,
+          "openmp_team_sizes": [
+            8
+          ],
+          "expected_threads": 8,
+          "cache_required": true,
+          "cache_loaded": true
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 20971520,
+            "read_bytes": 18874368,
+            "write_completions": 10,
+            "read_completions": 9,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 9,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 877,
+            "low_epochs": 863,
+            "high_epochs": 14,
+            "psi_some_ns": 27996044,
+            "psi_full_ns": 24440494,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-graph500-b32768-pin2-csr32-graph500-local/report.json"
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graph500 --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 639 --cpu-pinning --all-local-tracking --sample-period 65536 --cooling-samples 131072 --hhh-interval-ms 15000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 200000 --cold-folios 1 --minimum-local-mib 30558"
+    },
+    {
+      "role": "middle",
+      "trial_id": "d02",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "minimum_local_mib": 27018.0,
+        "psi_ppm": 1000,
+        "epoch_us": 50000,
+        "cold_folios": 1,
+        "sample_period": 32768,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 10000,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graph500-d02-graph500-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 172.09,
+          "cost": 172.09,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graph500-d02-graph500-on/graph500/application/20260923T035055Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 17.372499598937786,
+        "slowdown_percent": 0.09888320148905283,
+        "reference_status": "PASS",
+        "reference_point_coverage": {
+          "fig7": {
+            "HyperAlloc": {
+              "reference_domain": [
+                0,
+                27
+              ],
+              "status": "COMPARED"
+            },
+            "HyperAlloc+Memtis": {
+              "reference_domain": [
+                0,
+                34
+              ],
+              "status": "COMPARED"
+            }
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "validated_bfs": 32,
+          "expected_bfs": 32,
+          "openmp_team_sizes": [
+            8
+          ],
+          "expected_threads": 8,
+          "cache_required": true,
+          "cache_loaded": true
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 155189248,
+            "read_bytes": 153092096,
+            "write_completions": 74,
+            "read_completions": 73,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 52,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 3455,
+            "low_epochs": 3373,
+            "high_epochs": 82,
+            "psi_some_ns": 95525080,
+            "psi_full_ns": 92294984,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-graph500-b32768-c32-s32768-h10000-graph500-local/report.json"
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graph500 --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 639 --cpu-pinning --all-local-tracking --sample-period 32768 --cooling-samples 131072 --hhh-interval-ms 10000 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 50000 --cold-folios 1 --minimum-local-mib 27018"
+    },
+    {
+      "role": "high",
+      "trial_id": "d11",
+      "configuration": {
+        "vm_memory_mib": 32768,
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "minimum_local_mib": 21804.0,
+        "psi_ppm": 100000,
+        "epoch_us": 20000,
+        "cold_folios": 64,
+        "sample_period": 512,
+        "cooling_samples": 131072,
+        "hhh_interval_ms": 1,
+        "free_pages": 512,
+        "pre_reclaim_headroom_mib": 0,
+        "pre_reclaim_epoch_us": 10000
+      },
+      "measurement": {
+        "report": "benchmarks/results/chameleon/f78freq-graph500-d11-graph500-on/report.json",
+        "status": "PASS",
+        "performance": {
+          "runtime_seconds": 192.95,
+          "cost": 192.95,
+          "cost_metric": "sum of Guest timed application executions, including initialization; Liblinear train+predict",
+          "time_files": [
+            "benchmarks/results/chameleon/f78freq-graph500-d11-graph500-on/graph500/application/20260923T052659Z/time.txt"
+          ]
+        },
+        "reclaim_percent": 33.28111405883517,
+        "slowdown_percent": 12.232433690088396,
+        "reference_status": "PASS",
+        "reference_point_coverage": {
+          "fig7": {
+            "HyperAlloc": {
+              "reference_domain": [
+                0,
+                27
+              ],
+              "status": "OUTSIDE_REFERENCE_DOMAIN"
+            },
+            "HyperAlloc+Memtis": {
+              "reference_domain": [
+                0,
+                34
+              ],
+              "status": "COMPARED"
+            }
+          }
+        },
+        "checks": {
+          "application_exit_zero": true,
+          "guest_application_affinity": true,
+          "resources_empty": true,
+          "no_transport_or_data_error": true
+        },
+        "application_check": {
+          "status": "PASS",
+          "validated_bfs": 32,
+          "expected_bfs": 32,
+          "openmp_team_sizes": [
+            8
+          ],
+          "expected_threads": 8,
+          "cache_required": true,
+          "cache_loaded": true
+        },
+        "counters": {
+          "rdma": {
+            "write_bytes": 2097152,
+            "read_bytes": 2097152,
+            "write_completions": 1,
+            "read_completions": 1,
+            "transfer_errors": 0,
+            "map_failures": 0
+          },
+          "shadow": {
+            "demand_fault_successes": 1,
+            "demand_fault_failures": 0,
+            "data_save_failure": 0,
+            "data_load_failure": 0
+          },
+          "policy": {
+            "epochs": 9731,
+            "low_epochs": 9726,
+            "high_epochs": 5,
+            "psi_some_ns": 37684889,
+            "psi_full_ns": 36990716,
+            "action_errors": 0
+          }
+        },
+        "cpu_affinity_profile": {
+          "protocol": "physical-core-vcpu-and-guest-taskset-v1",
+          "host_numa_node": 0,
+          "vcpu_host_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "qemu_service_cpus": [
+            8,
+            9
+          ],
+          "guest_application_cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        "matched_tracking_baseline_report": "benchmarks/results/chameleon/f78freq-graph500-b32768-c32-s512-h1-graph500-local/report.json"
+      },
+      "completed_observations": 1,
+      "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases graph500 --vm-memory-mib 32768 --run-mode chameleon --sample-seconds 1 --timeout 639 --cpu-pinning --all-local-tracking --sample-period 512 --cooling-samples 131072 --hhh-interval-ms 1 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 100000 --epoch-us 20000 --cold-folios 64 --minimum-local-mib 21804"
+    }
+  ],
+  "reference_comparison_mode": "per-baseline-overlap",
+  "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json"
+}
