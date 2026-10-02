@@ -1,5 +1,11 @@
 # Environment and installation
 
+A complete AE run on the prepared platform is expected to take **22 hours**;
+please reserve **24 hours**. This estimate excludes initial installation,
+compilation and dataset preparation. Coordinate your evaluation slot with the
+authors in advance. We recommend that only one reviewer use the platform at a
+time to avoid interference between experiments.
+
 ## Machines
 
 The tested compute host has two Intel Xeon Gold 6342 sockets, 24 physical cores

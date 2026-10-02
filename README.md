@@ -70,8 +70,9 @@ sparse template disk, prepared datasets and VM overlays; these generated
 files are substantially larger than the roughly 37 GiB source/data package.
 
 On an already prepared evaluation server, skip installation and begin with
-the commands below. Coordinate access so only one evaluation uses the VFs
-and server resources at a time. On your own servers, follow
+the commands below. Coordinate your evaluation slot with the authors in advance.
+We recommend that only one reviewer use the platform at a time to avoid
+interference between experiments. On your own servers, follow
 [the environment guide](docs/environment.md). The main setup sequence is:
 
 ```bash
@@ -107,6 +108,10 @@ with `guestctl.py`. Keep the prepared template stopped and unchanged while
 its experiment overlays exist.
 
 ## Run the evaluation
+
+A complete evaluation on the prepared platform is expected to take **22 hours**;
+please reserve **24 hours**. This estimate excludes initial installation,
+compilation and dataset preparation.
 
 From the artifact root, first inspect the plan. This does not start VMs:
 
