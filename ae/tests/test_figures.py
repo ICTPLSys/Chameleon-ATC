@@ -74,7 +74,7 @@ class FigureTests(unittest.TestCase):
         self.assertNotIn('xsbench', result['applications'])
         self.assertNotIn('gcc', result['applications'])
 
-    def test_new_denominator_and_high_match(self):
+    def test_new_denominator_preserves_mix_highs(self):
         configs = json.loads((ROOT / 'ae/config/fig78-points.json').read_text())
         baseline = {'status': 'PASS', 'repeats': 3, 'applications': {
             case: {'vm_memory_mib': app['vm_memory_mib'], 'all_local': {'mean_cost': 123.0}}
@@ -82,9 +82,10 @@ class FigureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'all-local.json'; path.write_text(json.dumps(baseline))
             high = ae_fig9.frozen_highs(ROOT / 'ae/config/fig9-highs.json', ROOT / 'ae/config/fig78-points.json', path)
-        for case, app in configs['applications'].items():
+        frozen = json.loads((ROOT / 'ae/config/fig9-highs.json').read_text())
+        for case, app in frozen['applications'].items():
             self.assertEqual(high['applications'][case]['all_local']['performance']['cost'], 123.0)
-            self.assertEqual(high['applications'][case]['configuration']['sample_period'], app['points'][2]['configuration']['sample_period'])
+            self.assertEqual(high['applications'][case]['configuration']['sample_period'], app['configuration']['sample_period'])
 
     def test_render_all_figures(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -305,7 +305,7 @@
           "name": "high",
           "source_candidate": "d08",
           "configuration": {
-            "minimum_local_mib": 26624,
+            "minimum_local_mib": 28672,
             "psi_ppm": 1000,
             "epoch_us": 1000,
             "cold_folios": 2,

@@ -3,7 +3,7 @@
   "selected_utc": "2026-09-23T05:49:13.090641+00:00",
   "application": "pvc",
   "status": "SELECTED_BY_USER_SINGLE_HIGH_OBSERVATION",
-  "selection_reason": "User requests stop verification to save time and select d06 high18.623195% slowdown with unchanged d01 low/d05 middle; continue Cassandra. High has one completed observation; low/middle retain their prior two observations.",
+  "selection_reason": "Selected points: d01 low, d05 middle, d06 high (18.623195% slowdown). The high point has one completed observation; low and middle each have two observations.",
   "vm_memory_mib": 32768,
   "remote_pool_mib": 8192,
   "workload_configuration": {

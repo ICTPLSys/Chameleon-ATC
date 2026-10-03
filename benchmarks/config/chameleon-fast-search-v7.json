@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "reason": "User requests faster two-repeat validation, all-local origin plus at least three measured reclaim points, fixed VM per application curve, capacity/floor to vary reclaim and tracking to tune overhead. Search bands are advisory.",
+  "reason": "Two-repeat validation with an all-local origin and at least three measured reclamation points. VM capacity is fixed within each application curve; capacity and local floor control reclamation, and tracking parameters control overhead. Search bands are advisory.",
   "max_candidates": 16,
   "max_points_per_capacity": 6,
   "validation_repeats": 2,

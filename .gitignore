@@ -4,6 +4,7 @@
 /hyperalloc-6.18/results/
 /benchmarks/results/
 /ae/build/
+/ae/figures/
 /ae/results/*
 !/ae/results/.gitkeep
 # Raw validation evidence contains local inventory and machine details.

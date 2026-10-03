@@ -1,6 +1,6 @@
 {
   "version": 6,
-  "reason": "User requests denser PEBS sampling first, then more frequent HHH at higher reclamation; fixed tracked all-local denominator plus matched tracking diagnostics.",
+  "reason": "Search order: denser PEBS sampling, followed by more frequent HHH at higher reclamation. A fixed tracked all-local denominator and matched tracking diagnostics are used.",
   "max_candidates": 16,
   "max_points_per_capacity": 6,
   "validation_repeats": 3,

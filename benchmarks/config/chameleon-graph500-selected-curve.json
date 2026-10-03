@@ -3,7 +3,7 @@
   "selected_utc": "2026-09-23T05:33:46.822408+00:00",
   "application": "graph500",
   "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
-  "selection_reason": "User selected d11 high (12.232434% slowdown), retaining d01 low/d02 middle and moving to next application; single-observation selection, >13% target waived for this selection, no claim of two-repeat acceptance.",
+  "selection_reason": "Selected points: d01 low, d02 middle, d11 high (12.232434% slowdown). The high point has one observation and is below the >13% target; it does not meet two-repeat acceptance.",
   "vm_memory_mib": 32768,
   "remote_pool_mib": 8192,
   "workload_configuration": {

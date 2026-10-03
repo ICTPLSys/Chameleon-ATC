@@ -407,7 +407,7 @@ class RemoteServers(unittest.TestCase):
             self.assertEqual(rt.check_remote_server(value),{'status':'PASS'})
         command=run.call_args.args[0]
         remote=shlex.split(command[-1])
-        self.assertEqual(remote[-3:],[value['server']['binary'],'192.0.2.1',str(3*8192+1024)])
+        self.assertEqual(remote[-4:],[value['server']['binary'],'192.0.2.1',str(3*8192+1024),'8192'])
         self.assertIn('memory-server',command)
 
     def test_real_supervisor_stops_only_its_child_on_eof_or_lease_expiry(self):

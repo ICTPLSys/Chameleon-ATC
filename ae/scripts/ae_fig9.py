@@ -13,12 +13,21 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'benchmarks/scripts'))
 import chameleon_fig9 as data
-import chameleon_fig9_runtime as rt
+from chameleon_mix.runtime import rt
+from chameleon_mix import placement
 
 
 def save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, allow_nan=False) + '\n')
+
+
+def mix_applications(high, mix):
+    apps = [copy.deepcopy(high['applications'][case]) for case in data.MIXES[mix]]
+    overrides = high.get('mix_configurations', {}).get(mix, {})
+    for app in apps:
+        app['configuration'].update(overrides.get(app['application'], {}))
+    return apps
 
 
 def resource_plans(high, inventory, mixes, require_feasible=False):
@@ -27,8 +36,10 @@ def resource_plans(high, inventory, mixes, require_feasible=False):
     snapshot = rt.numa_memory_snapshot()
     for mix in mixes:
         try:
-            resources[mix] = rt.plan_mix_resources(mix, [high['applications'][case] for case in data.MIXES[mix]],
-                                                   inventory, snapshot)
+            apps = mix_applications(high, mix)
+            resources[mix] = placement.plan(apps, inventory, snapshot, rt.memory_reserves(inventory))
+            resources[mix].update(execution_mode='three-concurrent', simultaneous_vms=3,
+                                 simultaneous_applications=3)
         except ValueError as error:
             errors[mix] = str(error)
     if errors and require_feasible:
@@ -41,24 +52,13 @@ def frozen_highs(config, fig78_config, all_local_summary=None):
     frozen = copy.deepcopy(json.loads(Path(config).read_text()))
     if frozen.get('schema') != 'chameleon-ae-frozen-high-v1':
         raise ValueError('Unsupported frozen high configuration')
-    current = json.loads(Path(fig78_config).read_text()) if Path(fig78_config).exists() else None
+
     summary = json.loads(Path(all_local_summary).read_text()) if all_local_summary else None
     if summary is not None and (summary.get('status') not in ('PASS', 'PARTIAL') or summary.get('repeats') != 3):
         raise ValueError('All-local summary must come from a completed three-attempt campaign')
     frozen['missing_baselines'] = []
     for case, high in frozen['applications'].items():
-        historical_vm_memory_mib = high['vm_memory_mib']
-        if current is not None:
-            app = current['applications'][case]
-            point = next(p for p in app['points'] if p['name'] == 'high')
-            high['configuration'] = copy.deepcopy(point['configuration'])
-            high['configuration']['vm_memory_mib'] = app['vm_memory_mib']
-            high['vm_memory_mib'] = app['vm_memory_mib']
-            high['workload_configuration'] = copy.deepcopy(app['workload_configuration'])
-            high['provenance']['configuration'] = 'ae/config/fig78-points.json#' + case + '/high'
         if summary is None:
-            if historical_vm_memory_mib != high['vm_memory_mib']:
-                raise ValueError('Run a new all-local baseline after changing VM capacity for ' + case)
             continue
         app = summary['applications'].get(case)
         if app is None:
@@ -159,7 +159,7 @@ def main(argv=None):
     p.add_argument('--historical-all-local', action='store_true', help='Use bundled isolated measurements even if Fig78 results exist')
     p.add_argument('--output-dir', '--results', dest='output_dir', type=Path, default=ROOT / 'ae/results/fig9')
     p.add_argument('--mixes', choices=list(data.MIXES), nargs='+', default=list(data.MIXES))
-    p.add_argument('--repeats', type=int, choices=[3], default=3)
+    p.add_argument('--repeats', type=int, choices=[1, 2, 3], default=3)
     p.add_argument('--timeout', type=int, default=14400)
     p.add_argument('--baseline-level', choices=['50', '75'], default='75')
     mode = p.add_mutually_exclusive_group()
@@ -193,13 +193,13 @@ def main(argv=None):
                '--output-dir', str(out / 'raw'), '--results-root', str(out / 'raw-apps'),
                '--performance-mode', '--no-plot']
     if not a.run and not a.parse_only:
-        plan = {'figure': 'fig9', 'repeats': 3, 'command': command, 'output_dir': str(out),
+        plan = {'figure': 'fig9', 'repeats': a.repeats, 'command': command, 'output_dir': str(out),
                 'resource_status': 'INFEASIBLE' if errors else 'PASS', 'resource_errors': errors,
                 'normalization': high['normalization'], 'omitted_mixes': omitted,
                 'all_local_summary': str(baseline) if baseline else None,
                 'mixes': {mix: {'applications': data.MIXES[mix],
                                 **resources.get(mix, {}),
-                                'configurations': {case: high['applications'][case]['configuration'] for case in data.MIXES[mix]}}
+                                'configurations': {app['application']: app['configuration'] for app in mix_applications(high, mix)}}
                           for mix in mixes}, 'figures': ['fig9.svg', 'fig9.pdf'],
                 'reference_branch': a.baseline_level + '%'}
         print(json.dumps(plan, indent=2)); return

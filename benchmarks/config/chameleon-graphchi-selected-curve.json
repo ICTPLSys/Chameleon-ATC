@@ -3,7 +3,7 @@
   "selected_utc": "2026-09-23T03:05:14.019689+00:00",
   "application": "graphchi",
   "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
-  "selection_reason": "User requested retain d08 (10.3031% slowdown) as high point, stop repeat and move to next application. Low and middle remain d01 and d02.",
+  "selection_reason": "Selected points: d01 low, d02 middle, d08 high (10.3031% slowdown).",
   "vm_memory_mib": 49152,
   "remote_pool_mib": 8192,
   "workload_configuration": {
@@ -422,9 +422,9 @@
     "selected_high_slowdown_over_10_percent": true,
     "two_completed_passing_observations": false,
     "reference_extrapolation_performed": false,
-    "reference_note": "d08 retains original FAIL/Outside reference interpolation domain; selection is user-directed, not automatic full-curve acceptance.",
+    "reference_note": "d08 has qualification status FAIL: outside the reference interpolation domain. The selected point does not satisfy automatic full-curve acceptance.",
     "interrupted_repeat": "v26r2-d08",
-    "interrupted_repeat_note": "Stopped by user after one policy EINVAL was observed; partial run is not a second successful observation."
+    "interrupted_repeat_note": "The incomplete repeat contains one policy EINVAL and is excluded from the successful observation count."
   },
   "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json"
 }

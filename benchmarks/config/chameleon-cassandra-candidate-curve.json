@@ -301,7 +301,7 @@
             ],
             "acceptance_policy": "load-insert-errors-nonfatal-v1",
             "warnings": [
-              "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+              "INSERT errors are nonfatal under the configured load policy; successful insertion count may be below requested dataset size"
             ]
           },
           "throughput_ops": 22008.49527917776,
@@ -346,7 +346,7 @@
       "replay_command": "/usr/bin/python3 benchmarks/scripts/run-sized-chameleon-apps.py --name CHOOSE_UNIQUE_RUN_NAME --cases cassandra --vm-memory-mib 90112 --run-mode chameleon --sample-seconds 1 --timeout 1502 --cpu-pinning --all-local-tracking --sample-period 512 --cooling-samples 131072 --hhh-interval-ms 1 --pre-reclaim-headroom-mib 0 --pre-reclaim-epoch-us 10000 --psi-ppm 1000 --epoch-us 100000 --cold-folios 1 --minimum-local-mib 66144"
     }
   ],
-  "reference_scope": "User-supplied estimated target curves, not measured baselines",
+  "reference_scope": "Estimated target curves, not measured baselines",
   "acceptance_policy": "INSERT errors retained and not independently fatal; formal READ validity checked",
   "prepared_verification_baseline_trial_id": "v1r2-b",
   "selected_configuration_file": "benchmarks/config/chameleon-cassandra-selected-curve.json"

@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "reason": "User requested all-local with PEBS+HHH enabled. Freeze tracking parameters and resume memory/PSI/cold/floor search with fresh tracked baselines.",
+  "reason": "All-local measurements enable PEBS+HHH. Tracking parameters are fixed during memory/PSI/cold/floor search, with matching tracked baselines.",
   "max_candidates": 16,
   "max_points_per_capacity": 6,
   "validation_repeats": 3,

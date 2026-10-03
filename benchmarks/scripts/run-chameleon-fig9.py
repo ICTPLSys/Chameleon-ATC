@@ -535,62 +535,13 @@ def run_campaign(plan, inventory, source, out, name, repeats, timeout,
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--name', default='fig9-' + time.strftime('%Y%m%d-%H%M%S'))
-    p.add_argument('--inventory', type=Path, default=rt.ROOT / 'ae/config/host.json')
-    p.add_argument('--qualified', type=Path, default=rt.ROOT / 'ae/config/fig9-highs.json')
-    p.add_argument('--reference-plot', type=Path, default=rt.ROOT / 'ae/results_baselines/fig9.json')
-    p.add_argument('--output-dir', type=Path)
-    p.add_argument('--results-root', type=Path)
-    p.add_argument('--performance-mode', action='store_true')
-    p.add_argument('--no-plot', action='store_true')
-    p.add_argument('--mixes', choices=list(data.MIXES), nargs='+', default=list(data.MIXES))
-    p.add_argument('--repeats', type=int, default=3)
-    p.add_argument('--timeout', type=int, default=14400)
-    p.add_argument('--baseline-level', choices=['50', '75'], default='75', help='Select provided baseline numbers for plotting only')
-    mode = p.add_mutually_exclusive_group()
-    mode.add_argument('--plan', action='store_true')
-    mode.add_argument('--check', action='store_true')
-    mode.add_argument('--prepare', action='store_true')
-    mode.add_argument('--run', action='store_true')
-    a = p.parse_args()
-    if not re.fullmatch(r'[A-Za-z0-9_-]{1,32}', a.name) or a.repeats < 1 or a.timeout < 60:
-        p.error('Invalid run name/repeats/timeout')
-    if len(set(a.mixes)) != len(a.mixes): p.error('Duplicate mixes')
-    inventory = json.loads(a.inventory.read_text())
-    plan = build_plan(inventory, a.mixes, a.qualified, a.reference_plot)
-    if not (a.check or a.prepare or a.run):
-        print(json.dumps(plan, indent=2)); return
-    template = rt.access(inventory['template_vm'])
-    # Holding the template lock prevents guestctl from booting the backing disk.
-    with rt.guest.control_lock(template):
-        source = hardware_check(inventory, plan, template)
-        if a.check:
-            print(json.dumps({'status': 'PASS', 'mixes': a.mixes})); return
-        first = plan['mixes'][a.mixes[0]]
-        profiles = {case: cpu for phase in first['phases'] for case, cpu in phase['cpus']['applications'].items()}
-        configs = [rt.slot_config(source, slot, high, profiles[high['application']])
-                   for slot, high in zip(inventory['slots'], first['applications'])]
-        rt.prepare_slots(inventory, template, configs)
-        if a.prepare:
-            print(json.dumps({'status': 'PREPARED', 'slots': [s['name'] for s in inventory['slots']]})); return
-        out = a.output_dir.resolve() if a.output_dir else rt.ROOT / 'benchmarks/results/chameleon' / a.name
-        out.mkdir(parents=True, exist_ok=False)
-        rt.save(out / 'plan.json', plan)
-        configuration = {k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items()}
-        def stop(signum, frame): raise KeyboardInterrupt('signal ' + str(signum))
-        signal.signal(signal.SIGTERM, stop)
-        run_campaign(plan, inventory, source, out, a.name, a.repeats, a.timeout,
-                     a.results_root, a.performance_mode, configuration)
-        if not a.no_plot:
-            subprocess.run([sys.executable, str(HERE / 'plot-chameleon-fig9.py'), '--directory', str(out),
-                            '--baseline-level', a.baseline_level, '--errorbars', 'none'], check=True)
-        print('RESULT ' + str(out / 'report.json'))
+    from chameleon_mix.run import main as concurrent_main
+    return concurrent_main()
 
 
 if __name__ == '__main__':
     try:
-        main()
+        sys.exit(main())
     except KeyboardInterrupt:
         print('Figure 9 interrupted; cleanup recorded in the result directory.', file=sys.stderr)
         raise SystemExit(130)

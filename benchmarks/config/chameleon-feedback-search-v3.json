@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "reason": "User requested runtime monitoring, feedback-based adjustments and reclaiming to a target before application launch. No fixed total reclamation budget.",
+  "reason": "Runtime monitoring and feedback-based parameter adjustment with reclamation to a target before application launch. No fixed total reclamation budget.",
   "max_candidates": 16,
   "max_points_per_capacity": 6,
   "validation_repeats": 3,

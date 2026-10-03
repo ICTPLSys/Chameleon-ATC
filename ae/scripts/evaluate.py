@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def commands(args):
     mode = '--plan' if args.plan else '--parse-only' if args.parse_only else '--run'
-    common = ['--inventory', str(args.inventory.resolve()), '--repeats', '3', mode]
+    common = ['--inventory', str(args.inventory.resolve()), '--repeats', str(args.repeats), mode]
     output = args.results.resolve()
     result = []
     if args.figure in ('all', 'fig78'):
@@ -42,11 +42,14 @@ def main(argv=None):
                         help='Output root; fig78/ and fig9/ are created beneath it')
     parser.add_argument('--apps', nargs='+', help='Optional Figure 7/8 application subset')
     parser.add_argument('--mixes', nargs='+', choices=['mix1', 'mix2', 'mix3', 'mix4'])
+    parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=3)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--plan', action='store_true', help='Show the experiment plan without starting VMs')
     modes.add_argument('--run', action='store_true', help='Attempt three repetitions and draw successful measurements (default)')
     modes.add_argument('--parse-only', action='store_true', help='Reparse and redraw existing complete results')
     args = parser.parse_args(argv)
+    if args.figure != 'fig9' and args.repeats != 3:
+        parser.error('--repeats is only configurable for Figure 9')
     if args.parse_only and args.results is None:
         parser.error('--parse-only requires --results pointing to existing measurements')
     if args.figure == 'fig9' and args.apps:
@@ -62,7 +65,7 @@ def main(argv=None):
         # Catch an impossible Fig9 placement before hours of isolated runs.
         # Resource planning needs VM sizes/threads, not the future denominator.
         import ae_fig9
-        high = json.loads((ROOT / 'ae/config/fig78-points.json').read_text())
+        high = json.loads((ROOT / 'ae/config/fig9-highs.json').read_text())
         for case, app in high['applications'].items():
             app['application'] = case
         ae_fig9.resource_plans(high, json.loads(args.inventory.read_text()),

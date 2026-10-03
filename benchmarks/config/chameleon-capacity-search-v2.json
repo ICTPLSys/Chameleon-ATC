@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "reason": "User requested larger-VM exploration and no fixed reclaim budget. Search local capacity floors relative to measured application peak; total reclaim budget is derived from VM minus chosen floor, never capped at 6/8GiB.",
+  "reason": "Local capacity floors are relative to the measured application peak. The total reclaim budget is VM capacity minus the chosen floor, without a fixed 6/8 GiB cap.",
   "max_candidates": 16,
   "max_points_per_capacity": 6,
   "validation_repeats": 3,

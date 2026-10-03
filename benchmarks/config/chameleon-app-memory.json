@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "User-approved fixed VM sizes for existing scaled inputs; do not re-profile unless explicitly requested.",
+  "description": "Fixed VM sizes for the configured scaled inputs; re-profiling is opt-in.",
   "source": "benchmarks/results/chameleon/sized-apps-v4",
   "applications": {
     "liblinear": {

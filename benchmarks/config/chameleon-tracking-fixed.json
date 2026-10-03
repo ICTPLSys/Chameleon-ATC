@@ -4,5 +4,5 @@
   "cooling_samples": 131072,
   "hhh_interval_ms": 15000,
   "baseline_protocol": "all-local-pebs-hhh-on-v1",
-  "reason": "User accepted including PEBS+HHH in the all-local denominator; this is not an overhead-near-zero acceptance."
+  "reason": "The all-local denominator includes PEBS+HHH; this does not establish near-zero tracking overhead."
 }

@@ -482,7 +482,7 @@
             ],
             "acceptance_policy": "load-insert-errors-nonfatal-v1",
             "warnings": [
-              "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+              "INSERT errors are nonfatal under the configured load policy; successful insertion count may be below requested dataset size"
             ]
           },
           "throughput_ops": 22008.49527917776,
@@ -512,7 +512,7 @@
         },
         "application_check": {
           "status": "PASS",
-          "scope": "YCSB read success; user permits load INSERT errors. Actual load counts retained; not an independent full database-content scan",
+          "scope": "YCSB read success; load INSERT errors are handled by the configured acceptance policy. Actual load counts retained; not an independent full database-content scan",
           "insert_ok": [
             "4000000"
           ],
@@ -547,7 +547,7 @@
             ],
             "acceptance_policy": "load-insert-errors-nonfatal-v1",
             "warnings": [
-              "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+              "INSERT errors are nonfatal under the configured load policy; successful insertion count may be below requested dataset size"
             ]
           }
         },
@@ -591,7 +591,7 @@
     }
   ],
   "source_search": "benchmarks/results/chameleon/tuning-fig78-tracking-v6/search.json",
-  "reference_scope": "User-supplied estimated target curves, not measured-baseline SOTA evidence",
+  "reference_scope": "Estimated target curves, not measured-baseline SOTA evidence",
   "normalization_protocol": "fixed-first-capacity-all-local-v1",
   "additional_all_local": {
     "b90112-pin2-s512-c131072-h1": {
@@ -628,7 +628,7 @@
           ],
           "acceptance_policy": "load-insert-errors-nonfatal-v1",
           "warnings": [
-            "INSERT errors tolerated by user; successful insertion count may be below requested dataset size"
+            "INSERT errors are nonfatal under the configured load policy; successful insertion count may be below requested dataset size"
           ]
         },
         "throughput_ops": 22847.22063560968,

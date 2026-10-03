@@ -1,6 +1,6 @@
 {
   "revision": 3,
-  "reason": "Spark18GiB candidates1-8 did not meet reference targets; d06 OOM. After candidate9, test20GiB with a newly measured all-local baseline. Never combine capacities into a curve.",
+  "reason": "Spark18GiB candidates1-8 are outside reference targets; d06 has status OOM. The 20GiB candidates use a matching newly measured all-local baseline. Each curve contains one VM capacity.",
   "default": [
     {
       "psi_ppm": 1000,

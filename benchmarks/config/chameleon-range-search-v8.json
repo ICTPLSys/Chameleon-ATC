@@ -101,7 +101,7 @@
           "hhh_interval_ms": 1
         }
       ],
-      "high_probe_reason": "User requests PVC high slowdown>10%, preserving low d01/middle d05. Current kernel supports integer maintenance_interval_ms>=1 with CONFIG_HZ1000; first probe PEBS512/HHH1ms (500us not supported without kernel change), keep other d03 knobs and fixed112.87s baseline. Measure matched all-local overhead separately."
+      "high_probe_reason": "PVC high-point target: slowdown >10%; low d01 and middle d05 are fixed. The probe uses PEBS512/HHH1ms with the other d03 parameters and a fixed 112.87-s baseline. The kernel supports integer maintenance_interval_ms>=1 with CONFIG_HZ1000; a 500-us interval requires a kernel change. Matched all-local overhead is measured separately."
     },
     "xsbench": {
       "memory_steps_mib": [
@@ -175,11 +175,11 @@
           "hhh_interval_ms": 5000
         }
       ],
-      "capacity_tracking_restart_reason": "User authorized larger fixed VM and higher local floors, with tracking frequency varied across reclaim levels; pre-reclaim to floor before launch. Retain previous failures, measure a new same-VM pinned tracked all-local. No claim that this resolves network/storage symptoms until measured.",
+      "capacity_tracking_restart_reason": "Fixed VM capacity and local floors with tracking frequency varied across reclamation levels; pre-reclamation reaches the floor before launch. Normalization requires a same-capacity, CPU-pinned, tracked all-local baseline. Failed measurements remain recorded; network and storage behavior requires separate measurement.",
       "pre_reclaim_epoch_us": 10000,
       "runtime_epoch_reason": "Memcached same-capacity/preparation tests:100ms P95+85.50%,200ms+29.31%,400ms+2.98%. Use400ms as initial control period and vary PEBS/HHH for middle/high. Cassandra transfer is a starting hypothesis, not a measured result.",
       "flat_throughput_tolerance_pp": 1.0,
-      "flat_throughput_reason": "User explicitly allows near-flat throughput at fixed offered load; keep increasing P95, both reference comparisons, two observations and functional checks."
+      "flat_throughput_reason": "Near-flat throughput at fixed offered load is permitted; increasing P95, both reference comparisons, two observations and functional checks remain required."
     },
     "cassandra": {
       "memory_steps_mib": [
@@ -228,7 +228,7 @@
           "hhh_interval_ms": 5000
         }
       ],
-      "capacity_tracking_restart_reason": "User authorized larger fixed VM and higher local floors, with tracking frequency varied across reclaim levels; pre-reclaim to floor before launch. Retain previous failures, measure a new same-VM pinned tracked all-local. No claim that this resolves network/storage symptoms until measured.",
+      "capacity_tracking_restart_reason": "Fixed VM capacity and local floors with tracking frequency varied across reclamation levels; pre-reclamation reaches the floor before launch. Normalization requires a same-capacity, CPU-pinned, tracked all-local baseline. Failed measurements remain recorded; network and storage behavior requires separate measurement.",
       "pre_reclaim_epoch_us": 10000,
       "runtime_epoch_reason": "Memcached same-capacity/preparation tests:100ms P95+85.50%,200ms+29.31%,400ms+2.98%. Use400ms as initial control period and vary PEBS/HHH for middle/high. Cassandra transfer is a starting hypothesis, not a measured result.",
       "frozen_low_middle_trial_ids": [
@@ -241,7 +241,7 @@
           "epoch_us": 100000
         }
       ],
-      "high_probe_reason": "User explicitly requests100ms (100000us) control epoch instead of proposed300ms. Keep low/middle, VM90112MiB, high floor66144MiB, PSI1000ppm, cold1, PEBS512, HHH1ms unchanged.",
+      "high_probe_reason": "High-point control epoch: 100ms (100000us); VM90112MiB, local floor66144MiB, PSI1000ppm, cold1, PEBS512 and HHH1ms. Low and middle points are fixed.",
       "high_slowdown_min_exclusive_percent": 2.5936064584976437
     },
     "liblinear": {
@@ -358,7 +358,7 @@
         }
       ],
       "high_probe_allow_floor_reduction": true,
-      "high_probe_reason": "User requested26GiB local floor after22GiB OOM. Only floor changes from d07; PEBS512,HHH1000ms,PSI1000ppm,epoch1000us,cold2 unchanged."
+      "high_probe_reason": "Local floor: 26GiB; PEBS512, HHH1000ms, PSI1000ppm, epoch1000us and cold2 match d07. The 22GiB-floor measurement has status OOM."
     },
     "graph500": {
       "memory_steps_mib": [
@@ -408,7 +408,7 @@
         }
       ],
       "baseline_suffix": "-pin2-csr32",
-      "baseline_retry_reason": "New user-requested cached CSR/32 BFS protocol with real OpenMP. Previous64 BFS serial binary observation is archived, not a denominator.",
+      "baseline_retry_reason": "Cached CSR/32 BFS protocol with real OpenMP. The archived 64-BFS serial measurement is excluded from normalization.",
       "frozen_low_middle_trial_ids": [
         "d01",
         "d02"
@@ -424,7 +424,7 @@
           "psi_ppm": 100000
         }
       ],
-      "high_probe_reason": "User requests one additional trial: PSI10% (100000ppm), cold64; other d10 knobs unchanged: VM32768MiB, floor21804MiB, epoch20000us, PEBS512, HHH1ms. Fixed all-local171.92s.",
+      "high_probe_reason": "Probe configuration: PSI10% (100000ppm), cold64, VM32768MiB, local floor21804MiB, epoch20000us, PEBS512 and HHH1ms. Fixed all-local baseline: 171.92s.",
       "high_probe_allow_floor_reduction": true,
       "reference_comparison_mode": "per-baseline-overlap"
     }
@@ -641,8 +641,8 @@
     "b90112-pin2-s512-c131072-h1000": "b90112-s512-h1000-r1"
   },
   "normalization_protocol": "fixed-first-capacity-all-local-v1",
-  "normalization_reason": "User explicitly requests one fixed first same-capacity tracked all-local denominator across repeats, while preserving each round all-local and alternative normalization.",
+  "normalization_reason": "All repeats use the first same-capacity tracked all-local measurement as a fixed denominator. Per-round all-local measurements and alternative normalization are retained as diagnostics.",
   "mean_reference_tolerance_pp": 1.0,
-  "mean_reference_reason": "Apply the user's earlier allowance for small slowdown crossings/noise also to mean segments; the previous zero-crossing mean rule was assistant-added. Preserve strict zero-tolerance result and actual excess; do not claim strict dominance.",
+  "mean_reference_reason": "Mean-segment comparisons allow the configured small slowdown crossings and noise. Strict zero-tolerance results and actual excess are retained; the relaxed comparison does not establish strict dominance.",
   "cassandra_load_acceptance": "load-insert-errors-nonfatal-v1"
 }

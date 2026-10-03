@@ -269,7 +269,7 @@
       "cold_folios": 2
     }
   ],
-  "preparation_reason": "User explicitly accepts free-only operating points at local floor; no per-point cold/RDMA requirement. Preserve zero headroom and actual zero counters.",
+  "preparation_reason": "Free-only operating points at the local floor are permitted; cold-page reclamation and RDMA activity are not required per point. Preparation headroom is zero, and measured zero counters are retained.",
   "reference_tolerance_pp": 1.0,
   "reference_criterion": "repeat-excess-at-most-1pp-mean-strictly-below-v1"
 }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_utc": "2026-09-23T08:09:41.758651+00:00",
   "scope": "Only currently accepted full low/middle/high curves; candidates and failed configurations are in the separate experiment ledger.",
-  "reference_kind": "User-supplied estimated target curves; not measured-baseline SOTA evidence",
+  "reference_kind": "Estimated target curves; not measured-baseline SOTA evidence",
   "units": {
     "memory": "MiB",
     "psi": "ppm (10000 ppm = 1%)",
@@ -1656,7 +1656,7 @@
     "memcached": {
       "vm_memory_mib": 73728,
       "status": "ACCEPTED",
-      "throughput_interpretation": "User-approved near-flat inverse-goodput curve at fixed offered load; not a maximum service-capacity measurement. P95 trend remains required.",
+      "throughput_interpretation": "Near-flat inverse-goodput curve at fixed offered load; not a maximum service-capacity measurement. P95 trend remains required.",
       "cpu_affinity_profile": {
         "protocol": "physical-core-vcpu-and-guest-taskset-v1",
         "host_numa_node": 0,
@@ -3021,7 +3021,7 @@
         },
         "reference_accuracy_percent": 95.1394,
         "reference_accuracy_tolerance_pp": 0.001,
-        "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; retain prediction numerator/denominator and require all 68000000 records. Previous exact-match failures remain archived."
+        "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; prediction numerator and denominator are retained, and all 68000000 records are required. Exact-match validation failures are retained in the archived measurements."
       },
       "all_local": {
         "policy_enabled": false,
@@ -4024,7 +4024,7 @@
       "configuration_file": "chameleon-cassandra-selected-curve.json",
       "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
       "selected_utc": "2026-09-23T08:08:58.089285+00:00",
-      "reason": "User requests stop further verification and save current low/middle/high configuration, with high control epoch100000us. Each selected point has one completed observation; interrupted second-round low is excluded."
+      "reason": "The selected high point uses a 100000-us control epoch. Each selected point has one completed observation; the incomplete second low-point repeat is excluded."
     },
     "pvc": {
       "candidate_ids": [
@@ -4035,7 +4035,7 @@
       "configuration_file": "chameleon-pvc-selected-curve.json",
       "status": "SELECTED_BY_USER_SINGLE_HIGH_OBSERVATION",
       "selected_utc": "2026-09-23T05:49:13.090641+00:00",
-      "reason": "User requests stop verification to save time and select d06 high18.623195% slowdown with unchanged d01 low/d05 middle; continue Cassandra. High has one completed observation; low/middle retain their prior two observations."
+      "reason": "Selected points: d01 low, d05 middle, d06 high (18.623195% slowdown). The high point has one completed observation; low and middle each have two observations."
     },
     "graphchi": {
       "candidate_ids": [
@@ -4046,7 +4046,7 @@
       "configuration_file": "chameleon-graphchi-selected-curve.json",
       "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
       "selected_utc": "2026-09-23T03:05:14.019689+00:00",
-      "reason": "User requested retain d08 (10.3031% slowdown) as high point, stop repeat and move to next application. Low and middle remain d01 and d02."
+      "reason": "Selected points: d01 low, d02 middle, d08 high (10.3031% slowdown)."
     },
     "graph500": {
       "candidate_ids": [
@@ -4057,7 +4057,7 @@
       "configuration_file": "chameleon-graph500-selected-curve.json",
       "status": "SELECTED_BY_USER_SINGLE_OBSERVATION",
       "selected_utc": "2026-09-23T05:33:46.822408+00:00",
-      "reason": "User selected d11 high (12.232434% slowdown), retaining d01 low/d02 middle and moving to next application; single-observation selection, >13% target waived for this selection, no claim of two-repeat acceptance."
+      "reason": "Selected points: d01 low, d02 middle, d11 high (12.232434% slowdown). The high point has one observation and is below the >13% target; it does not meet two-repeat acceptance."
     }
   }
 }

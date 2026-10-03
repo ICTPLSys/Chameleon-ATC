@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Run each application in a fresh VM using recorded, approved memory sizes.
-Use --reprofile only when new all-local peak+2GiB sizing is requested.
+"""Run each application in a fresh VM using recorded fixed memory sizes.
+Use --reprofile to measure new all-local peak+2GiB sizing.
 
 Uses the existing disk/VF, graceful QEMU shutdown, and the existing RDMA server.
 Restores the original VM memory/configuration and benchmark services at exit.
@@ -69,7 +69,7 @@ def fixed_plan(config, case):
     plan=dict(config['applications'][case])
     if plan['case']!=case or not isinstance(plan['memory_mib'],int) or plan['memory_mib']<=2048 or plan['memory_mib']%2:
         raise ValueError('Invalid fixed memory plan for '+case)
-    return dict(plan,allocation_mode='fixed-user-approved')
+    return dict(plan,allocation_mode='fixed')
 
 
 def parse_args(argv=None):

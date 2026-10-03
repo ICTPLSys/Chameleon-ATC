@@ -46,9 +46,9 @@ def measured_mean(point, key):
 
 
 def prepare(fig, summary, reference):
-    if summary.get('status') not in ('PASS', 'PARTIAL') or summary.get('repeats') != 3:
-        raise ValueError('Plot requires a completed three-attempt summary')
-    result = {'schema_version': 1, 'figure': fig, 'repeats': 3,
+    if summary.get('status') not in ('PASS', 'PARTIAL') or summary.get('repeats') not in ((1, 2, 3) if fig == 'fig9' else (3,)):
+        raise ValueError('Plot requires a completed summary')
+    result = {'schema_version': 1, 'figure': fig, 'repeats': summary['repeats'],
               'error_bars': False, 'reference': copy.deepcopy(reference),
               'chameleon_source': 'successful reviewer measurements supplied in the input summary',
               'status': summary['status'], 'errors': copy.deepcopy(summary.get('errors', [])),

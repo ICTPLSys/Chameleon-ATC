@@ -1,6 +1,6 @@
 {
   "revision": 1,
-  "reason": "Revision2: Spark d03/d04 show substantial policy/fault overhead; explore slower epochs with larger batches in slots7-16. Completed candidate parameters remain immutable.",
+  "reason": "Spark d03/d04 measurements show substantial policy/fault overhead. Candidate slots7-16 cover slower epochs with larger batches. Completed candidate parameters are immutable.",
   "default": [
     {
       "psi_ppm": 1000,

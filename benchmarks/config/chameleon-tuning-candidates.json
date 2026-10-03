@@ -1,6 +1,6 @@
 {
   "revision": 4,
-  "reason": "Spark18GiB candidates1-8 did not meet reference targets; d06 OOM. After candidate9, test20GiB with a newly measured all-local baseline. Never combine capacities into a curve. Last candidates14/16 also test an8GiB total-reclamation budget (shared by free+cold pages) to explore the local floor with the existing8GiB RDMA pool; other knobs differ too.",
+  "reason": "Spark18GiB candidates1-8 are outside reference targets; d06 has status OOM. The 20GiB candidates use a matching newly measured all-local baseline. Each curve contains one VM capacity. Candidates14/16 use an8GiB total-reclamation budget shared by free and cold pages with an8GiB RDMA pool; other parameters also differ.",
   "default": [
     {
       "psi_ppm": 1000,

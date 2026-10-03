@@ -20,6 +20,7 @@ import chameleon_fig9 as data
 
 ROOT = Path(__file__).resolve().parents[2]
 HA = ROOT / 'hyperalloc-6.18'
+REMOTE_POOL_MIB = 8192
 
 
 def module(name, file):
@@ -284,7 +285,7 @@ def check_memory_available(applications, placement, inventory, snapshot=None,
                                      if line.startswith('MemAvailable:'))) // 1024
     required = sum(row['required_mib'] for row in evidence.values())
     if local_pools_pending and inventory['server'].get('manage_local'):
-        required += 3 * 8192
+        required += 3 * REMOTE_POOL_MIB
     if host_available_mib < required:
         raise ValueError(f'Host needs {required}MiB available including reserves; has {host_available_mib}MiB')
     return {'nodes': evidence, 'host_required_mib': required, 'host_available_mib': host_available_mib}
@@ -626,7 +627,7 @@ def setup_guest(a, slot, server):
     guest.transfer(a, 'upload', ROOT / 'benchmarks/scripts/memcached-warmup.py', scripts + 'memcached-warmup.py')
     result = subprocess.run(guest.ssh_command(a, ['sudo', '-n', 'python3', helper,
         'start', '--server', server['address'], '--port', str(slot['server_port']),
-        '--pool-mib', '8192', '--interface', interface]),
+        '--pool-mib', str(REMOTE_POOL_MIB), '--interface', interface]),
         capture_output=True, text=True, timeout=300)
     # Save both successful retries and failures independently of caller output.
     diagnosis = {'vm': a['name'], 'server': server['address'], 'port': slot['server_port'],
@@ -702,7 +703,7 @@ def stop_process(child, timeout=20):
 
 REMOTE_CHECK = r'''
 import json,os,pathlib,resource,subprocess,sys
-binary,address,required_mib=sys.argv[1:]
+binary,address,required_mib,pool_mib=sys.argv[1:]
 if not os.path.isfile(binary) or not os.access(binary,os.X_OK):
     raise RuntimeError('Remote RDMA binary is not executable: '+binary)
 devices=json.loads(subprocess.check_output(['ip','-j','address','show'],text=True))
@@ -711,8 +712,8 @@ if not matches: raise RuntimeError('Remote RDMA IP is not configured: '+address)
 available=int(next(x.split()[1] for x in pathlib.Path('/proc/meminfo').read_text().splitlines() if x.startswith('MemAvailable:')))//1024
 if available<int(required_mib): raise RuntimeError('Remote memory insufficient: available=%s required=%s MiB'%(available,required_mib))
 memlock=resource.getrlimit(resource.RLIMIT_MEMLOCK)[0]
-if memlock!=resource.RLIM_INFINITY and memlock<8192*1024*1024:
-    raise RuntimeError('Remote memlock must cover one 8192MiB registered pool')
+if memlock!=resource.RLIM_INFINITY and memlock<int(pool_mib)*1024*1024:
+    raise RuntimeError('Remote memlock must cover one %sMiB registered pool'%pool_mib)
 print(json.dumps({'status':'PASS','hostname':os.uname().nodename,'binary':binary,'address':address,
                   'interfaces':matches,'available_mib':available,'required_mib':int(required_mib),
                   'memlock_soft_bytes':memlock}))
@@ -772,7 +773,7 @@ def check_remote_server(inventory):
     if not config.get('manage_remote'):
         return None
     result=subprocess.run(server_ssh_command(config,REMOTE_CHECK,
-        [config['binary'],config['address'],len(inventory['slots'])*8192+1024]),
+        [config['binary'],config['address'],len(inventory['slots'])*REMOTE_POOL_MIB+1024,REMOTE_POOL_MIB]),
         check=True,capture_output=True,text=True,timeout=30)
     return json.loads(result.stdout)
 
@@ -822,7 +823,7 @@ def servers(inventory, output):
             for slot in inventory['slots']:
                 logfile = output / (slot['name'] + '-rdma-server.log')
                 stream = logfile.open('w'); streams.append(stream)
-                command=[*config.get('command_prefix', []),str(binary),config['address'],str(slot['server_port']),'8192']
+                command=[*config.get('command_prefix', []),str(binary),config['address'],str(slot['server_port']),str(REMOTE_POOL_MIB)]
                 if remote_mode:
                     child=subprocess.Popen(server_ssh_command(config,REMOTE_SUPERVISOR,[json.dumps(command),30]),
                                            stdin=subprocess.PIPE,stdout=stream,stderr=subprocess.STDOUT)

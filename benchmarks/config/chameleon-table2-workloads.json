@@ -1,7 +1,7 @@
 {
   "name": "table2-peak-v1",
   "source": "atc26-chameleon.pdf Table 2",
-  "target_definition": "User-requested application peak RSS target using Table 2 Mem values (the paper column itself describes VM allocation)",
+  "target_definition": "Application peak RSS target using Table 2 Mem values (the paper column itself describes VM allocation)",
   "tolerance_percent": 10,
   "vm_headroom_mib": 2048,
   "applications": {
@@ -86,7 +86,7 @@
       },
       "reference_accuracy_percent": 95.1394,
       "reference_accuracy_tolerance_pp": 0.001,
-      "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; retain prediction numerator/denominator and require all 68000000 records. Previous exact-match failures remain archived."
+      "accuracy_validation_note": "Explicit absolute percentage-point tolerance for multicore floating-point optimization; prediction numerator and denominator are retained, and all 68000000 records are required. Exact-match validation failures are retained in the archived measurements."
     },
     "graph500": {
       "target_peak_gib": 20,
