@@ -53,8 +53,6 @@ and build directories. The installed releases are `6.18.0-chameleon-guest` and
 
 ## Evaluation environment
 
-**AE reviewers can contact the authors to request access to our prepared hardware platform and conduct the artifact evaluation.**
-
 The tested compute platform uses a two-socket Intel server with 48 physical cores,
 256 GiB RAM, KVM/EPT, PEBS support, and a Mellanox mlx5 InfiniBand adapter with
 SR-IOV. A separate memory server provides native RDMA connectivity. Figure 9
